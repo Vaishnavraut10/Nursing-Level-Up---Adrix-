@@ -17,14 +17,14 @@ The platform includes both a student-facing interface and an admin panel for con
 ### Frontend
 - **React.js** - UI framework
 - **Next.js 16** - React framework with App Router
-- **TypeScript** - Type-safe development
+- **TypeScript** - Type-safe frontend development
 - **Tailwind CSS** - Utility-first CSS framework
 - **Geist Font** - Modern typography
 
 ### Backend
 - **Node.js** - JavaScript runtime
 - **Express.js** - Web application framework
-- **TypeScript** - Type-safe backend development
+- **JavaScript** - Backend runtime implementation
 - **CORS** - Cross-origin resource sharing
 
 ### Database
@@ -73,13 +73,12 @@ course_web/
 ├── backend/                    # Express.js backend API
 │   ├── src/
 │   │   ├── config/            # Configuration files
-│   │   │   └── database.ts    # Database connection
+│   │   │   └── database.js    # Database connection
 │   │   ├── routes/            # API route handlers
-│   │   │   └── health.ts      # Health check endpoint
+│   │   │   └── health.js      # Health check endpoint
 │   │   ├── middleware/        # Express middleware
-│   │   └── index.ts           # Server entry point
+│   │   └── index.js           # Server entry point
 │   ├── package.json           # Backend dependencies
-│   ├── tsconfig.json          # TypeScript configuration
 │   └── .env.example           # Backend environment variables
 ├── package.json               # Root package.json (scripts)
 ├── .gitignore               # Git ignore rules
