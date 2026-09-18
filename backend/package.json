@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node src/index.js",
     "start": "node src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "node --check src/index.js && node --check src/config/database.js && node --check src/routes/health.js",
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",

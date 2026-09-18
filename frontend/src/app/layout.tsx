@@ -1,20 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "NurseLearn - Nursing Education Platform",
-  description: "Comprehensive nursing education platform with courses and MCQ practice tests for nursing students",
+  title: "NursePrep - Nursing Courses & MCQ Practice",
+  description: "Structured nursing courses and practice MCQs designed to help you learn, test yourself and track your progress.",
 };
 
 export default function RootLayout({
@@ -23,10 +12,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-    >
+    <html lang="en">
       <body>{children}</body>
     </html>
   );
