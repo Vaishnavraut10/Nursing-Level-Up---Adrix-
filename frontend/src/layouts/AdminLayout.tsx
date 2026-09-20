@@ -16,8 +16,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   useEffect(() => {
     // Check admin authentication
-    const adminAuth = localStorage.getItem('adminAuth');
-    if (!adminAuth && pathname !== '/admin/login') {
+    const adminToken = localStorage.getItem('adminToken');
+    if (!adminToken && pathname !== '/admin/login') {
       router.push('/admin/login');
     } else {
       setIsAuthenticated(true);
@@ -26,7 +26,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   const handleLogout = () => {
     localStorage.removeItem('adminAuth');
-    localStorage.removeItem('adminRole');
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminUser');
     router.push('/admin/login');
   };
 

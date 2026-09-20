@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import MainLayout from '@/layouts/MainLayout';
 import Button from '@/components/Button';
+import { useAuth } from '@/hooks/useAuth';
 import { fadeUpVariants, useScrollReveal } from '@/utilities/animations';
 
 interface TestSeries {
@@ -22,8 +23,10 @@ export default function TestSeriesDetailPage() {
   const router = useRouter();
   const testSeriesId = params.id as string;
   const scrollReveal = useScrollReveal();
+  const { isAuthenticated } = useAuth();
   const [testSeries, setTestSeries] = useState<TestSeries | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchTestSeries = async () => {
@@ -33,17 +36,12 @@ export default function TestSeriesDetailPage() {
           const data = await response.json();
           setTestSeries(data);
         } else {
-          // Fallback to mock data
-          const { getTestSeriesById } = await import('@/data/testSeries');
-          const mockData = getTestSeriesById(testSeriesId);
-          setTestSeries(mockData || null);
+          console.error('Failed to fetch test series:', response.status);
+          setError('Unable to load test series. Please try again.');
         }
       } catch (error) {
         console.error('Failed to fetch test series:', error);
-        // Fallback to mock data
-        const { getTestSeriesById } = await import('@/data/testSeries');
-        const mockData = getTestSeriesById(testSeriesId);
-        setTestSeries(mockData || null);
+        setError('Unable to connect to server. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -53,11 +51,18 @@ export default function TestSeriesDetailPage() {
   }, [testSeriesId]);
 
   const handleStartTest = () => {
-    // In a real app, this would check if user is logged in
+    if (!isAuthenticated) {
+      router.push(`/login?redirect=/tests/${testSeriesId}`);
+      return;
+    }
     router.push(`/tests/${testSeriesId}`);
   };
 
   const handleUnlock = () => {
+    if (!isAuthenticated) {
+      router.push(`/login?redirect=/unlock/${testSeriesId}`);
+      return;
+    }
     router.push(`/unlock/${testSeriesId}`);
   };
 
@@ -67,6 +72,18 @@ export default function TestSeriesDetailPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center h-64">
             <div className="text-muted">Loading...</div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <MainLayout>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-error">{error}</div>
           </div>
         </div>
       </MainLayout>

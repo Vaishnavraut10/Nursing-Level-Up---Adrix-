@@ -2,6 +2,9 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const healthRoutes = require('./routes/health');
+const authRoutes = require('./routes/auth');
+const dashboardRoutes = require('./routes/dashboard');
+const testsRoutes = require('./routes/tests');
 const adminDashboardRoutes = require('./routes/admin/dashboard');
 const adminUsersRoutes = require('./routes/admin/users');
 const adminTestSeriesRoutes = require('./routes/admin/testSeries');
@@ -20,6 +23,9 @@ app.use(express.json());
 
 // Routes
 app.use('/api', healthRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/tests', testsRoutes);
 app.use('/api/admin', adminDashboardRoutes);
 app.use('/api/admin', adminUsersRoutes);
 app.use('/api/admin', adminTestSeriesRoutes);

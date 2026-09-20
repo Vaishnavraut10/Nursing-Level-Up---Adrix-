@@ -6,9 +6,11 @@ CREATE TABLE IF NOT EXISTS users (
   google_id VARCHAR(255) UNIQUE,
   email VARCHAR(255) UNIQUE NOT NULL,
   name VARCHAR(255) NOT NULL,
+  phone VARCHAR(20),
   role VARCHAR(50) DEFAULT 'STUDENT' CHECK (role IN ('STUDENT', 'ADMIN')),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  last_login_at TIMESTAMP,
   last_activity TIMESTAMP
 );
 
@@ -87,6 +89,7 @@ CREATE TABLE IF NOT EXISTS purchases (
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_test_series_status ON test_series(status);
 CREATE INDEX IF NOT EXISTS idx_test_series_created_by ON test_series(created_by);

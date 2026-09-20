@@ -6,45 +6,40 @@ import AdminLayout from '@/layouts/AdminLayout';
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Fetch dashboard data from backend
-    // For now, use mock data
-    setTimeout(() => {
-      setStats({
-        statistics: {
-          totalUsers: 5,
-          totalTestSeries: 5,
-          paidTestSeries: 3,
-          totalPurchases: 3,
-          totalAttempts: 4,
-          revenue: 597
-        },
-        recentRegistrations: [
-          { id: 5, email: 'student5@example.com', name: 'Vikram Joshi', created_at: '2024-01-15' },
-          { id: 4, email: 'student4@example.com', name: 'Sneha Singh', created_at: '2024-01-14' },
-          { id: 3, email: 'student3@example.com', name: 'Amit Kumar', created_at: '2024-01-13' },
-        ],
-        recentPurchases: [
-          { id: 3, name: 'Sneha Singh', test_series_title: 'Test Series 04', amount: 199, status: 'SUCCESS' },
-          { id: 2, name: 'Amit Kumar', test_series_title: 'Test Series 03', amount: 199, status: 'SUCCESS' },
-          { id: 1, name: 'Rahul Sharma', test_series_title: 'Test Series 03', amount: 199, status: 'SUCCESS' },
-        ],
-        recentAttempts: [
-          { id: 4, name: 'Vikram Joshi', test_series_title: 'Test Series 01', score: 40, submitted_at: '2024-01-15' },
-          { id: 3, name: 'Sneha Singh', test_series_title: 'Test Series 01', score: 45, submitted_at: '2024-01-14' },
-          { id: 2, name: 'Amit Kumar', test_series_title: 'Test Series 01', score: 42, submitted_at: '2024-01-13' },
-        ],
-        testSeriesOverview: [
-          { id: 1, title: 'Test Series 01', is_free: true, price: 0, status: 'PUBLISHED', question_count: 50 },
-          { id: 2, title: 'Test Series 02', is_free: true, price: 0, status: 'PUBLISHED', question_count: 50 },
-          { id: 3, title: 'Test Series 03', is_free: false, price: 199, status: 'PUBLISHED', question_count: 50 },
-          { id: 4, title: 'Test Series 04', is_free: false, price: 199, status: 'PUBLISHED', question_count: 50 },
-          { id: 5, title: 'Test Series 05', is_free: false, price: 199, status: 'DRAFT', question_count: 50 },
-        ]
-      });
-      setLoading(false);
-    }, 500);
+    const fetchDashboardData = async () => {
+      try {
+        const adminToken = localStorage.getItem('adminToken');
+        if (!adminToken) {
+          setError('Admin authentication required');
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch('http://localhost:5000/api/admin/dashboard', {
+          headers: {
+            'X-Admin-Auth': adminToken
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setStats(data);
+        } else {
+          console.error('Failed to fetch dashboard data:', response.status);
+          setError('Unable to load dashboard data. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        setError('Unable to connect to server. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
   }, []);
 
   if (loading) {
@@ -52,6 +47,16 @@ export default function AdminDashboardPage() {
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
           <div className="text-muted">Loading...</div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-error">{error}</div>
         </div>
       </AdminLayout>
     );

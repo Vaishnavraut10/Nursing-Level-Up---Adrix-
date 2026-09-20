@@ -10,20 +10,44 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Mock admin login for development
-    // In production, this would call the real authentication API
-    setTimeout(() => {
+    setError('');
+
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Login failed');
+      }
+
+      const data = await response.json();
+
+      // Verify user is admin
+      if (data.user.role !== 'ADMIN') {
+        throw new Error('Access denied. Admin role required.');
+      }
+
+      // Store admin auth
       localStorage.setItem('adminAuth', 'true');
-      localStorage.setItem('adminRole', 'ADMIN');
+      localStorage.setItem('adminToken', data.authToken);
+      localStorage.setItem('adminUser', JSON.stringify(data.user));
+
       setIsLoading(false);
       router.push('/admin');
-    }, 1000);
+    } catch (error) {
+      console.error('Admin login error:', error);
+      setError(error instanceof Error ? error.message : 'Login failed');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -59,20 +83,11 @@ export default function AdminLoginPage() {
               />
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-dark mb-2">
-                Password
-              </label>
-              <input
-                type="password"
-                id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="••••••••"
-                required
-              />
-            </div>
+            {error && (
+              <div className="bg-error/10 text-error text-sm p-3 rounded-lg">
+                {error}
+              </div>
+            )}
 
             <Button
               type="submit"
@@ -86,7 +101,7 @@ export default function AdminLoginPage() {
 
           <div className="mt-6 text-center">
             <p className="text-xs text-muted">
-              Development mode: Use any credentials
+              Development mode: Use admin@nursinglevelup.com
             </p>
           </div>
         </div>

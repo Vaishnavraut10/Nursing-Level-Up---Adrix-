@@ -4,27 +4,37 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import AdminLayout from '@/layouts/AdminLayout';
+import { fetchWithAdminAuth } from '@/lib/adminAuth';
 
 export default function TestSeriesDetailPage() {
   const router = useRouter();
   const params = useParams();
   const [testSeries, setTestSeries] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Mock data
-    setTestSeries({
-      id: 1,
-      title: 'Test Series 01',
-      description: 'Foundation nursing concepts covering basic principles and patient care fundamentals.',
-      duration: 45,
-      is_free: true,
-      price: 0,
-      status: 'PUBLISHED',
-      question_count: 50
-    });
-    setLoading(false);
-  }, []);
+    const fetchTestSeries = async () => {
+      try {
+        const response = await fetchWithAdminAuth(`http://localhost:5000/api/admin/test-series/${params.id}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          setTestSeries(data);
+        } else {
+          console.error('Failed to fetch test series:', response.status);
+          setError('Unable to load test series. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error fetching test series:', error);
+        setError(error instanceof Error ? error.message : 'Unable to connect to server.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTestSeries();
+  }, [params.id]);
 
   const handlePublish = async () => {
     // API call to publish
@@ -41,6 +51,16 @@ export default function TestSeriesDetailPage() {
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
           <div className="text-muted">Loading...</div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-error">{error}</div>
         </div>
       </AdminLayout>
     );

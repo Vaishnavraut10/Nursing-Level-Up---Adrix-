@@ -1,26 +1,65 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import MainLayout from '@/layouts/MainLayout';
 import Button from '@/components/Button';
-import { getTestSeriesById } from '@/data';
+import { useAuth } from '@/hooks/useAuth';
 import { fadeUpVariants, useScrollReveal } from '@/utilities/animations';
 
 export default function UnlockPage() {
   const params = useParams();
   const router = useRouter();
   const testSeriesId = params.id as string;
-  const testSeries = getTestSeriesById(testSeriesId);
   const scrollReveal = useScrollReveal();
+  const { isAuthenticated } = useAuth();
+  const [testSeries, setTestSeries] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<'razorpay' | 'stripe'>('razorpay');
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push(`/login?redirect=/unlock/${testSeriesId}`);
+      return;
+    }
+
+    const fetchTestSeries = async () => {
+      try {
+        const response = await fetch(`http://localhost:5000/api/test-series/${testSeriesId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setTestSeries(data);
+        } else {
+          console.error('Failed to fetch test series:', response.status);
+        }
+      } catch (error) {
+        console.error('Failed to fetch test series:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTestSeries();
+  }, [testSeriesId, isAuthenticated, router]);
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-muted">Loading...</div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   if (!testSeries) {
     return (
       <MainLayout>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <p className="text-muted">Test series not found.</p>
         </div>
       </MainLayout>
@@ -31,11 +70,11 @@ export default function UnlockPage() {
     setIsProcessing(true);
     
     // Simulate payment processing
+    // In production, this would integrate with Razorpay/Stripe
     setTimeout(() => {
       setIsProcessing(false);
-      // In a real app, this would verify payment with backend
-      // For now, we'll just redirect back to test details
-      router.push(`/test-series/${testSeriesId}`);
+      // For development, just redirect to test
+      router.push(`/tests/${testSeriesId}`);
     }, 2000);
   };
 

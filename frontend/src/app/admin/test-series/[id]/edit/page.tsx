@@ -2,11 +2,13 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import AdminLayout from '@/layouts/AdminLayout';
+import { fetchWithAdminAuth } from '@/lib/adminAuth';
 
 export default function EditTestSeriesPage() {
   const router = useRouter();
+  const params = useParams();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -15,24 +17,49 @@ export default function EditTestSeriesPage() {
     price: 199,
     status: 'DRAFT'
   });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Mock initial data
-    setFormData({
-      title: 'Test Series 01',
-      description: 'Foundation nursing concepts covering basic principles and patient care fundamentals.',
-      duration: 45,
-      is_free: true,
-      price: 0,
-      status: 'PUBLISHED'
-    });
-  }, []);
+    const fetchTestSeries = async () => {
+      try {
+        const response = await fetchWithAdminAuth(`http://localhost:5000/api/admin/test-series/${params.id}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          setFormData(data);
+        } else {
+          console.error('Failed to fetch test series:', response.status);
+        }
+      } catch (error) {
+        console.error('Error fetching test series:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const handleSubmit = (e: React.FormEvent) => {
+    fetchTestSeries();
+  }, [params.id]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // API call to update
-    console.log('Updating test series:', formData);
-    router.push('/admin/test-series');
+    
+    try {
+      const response = await fetchWithAdminAuth(`http://localhost:5000/api/admin/test-series/${params.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      
+      if (response.ok) {
+        router.push(`/admin/test-series/${params.id}`);
+      } else {
+        console.error('Failed to update test series:', response.status);
+        alert('Failed to update test series. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error updating test series:', error);
+      alert(error instanceof Error ? error.message : 'Unable to connect to server. Please try again.');
+    }
   };
 
   return (

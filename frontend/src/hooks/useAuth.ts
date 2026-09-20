@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react';
 
 interface User {
-  id: string;
+  id: number;
   name: string;
   email: string;
+  phone?: string;
+  role: 'STUDENT' | 'ADMIN';
 }
 
 interface AuthState {
@@ -15,12 +17,7 @@ interface AuthState {
 }
 
 const AUTH_STORAGE_KEY = 'nursing_level_up_auth';
-
-const mockUser: User = {
-  id: 'mock-user-1',
-  name: 'Test User',
-  email: 'test@example.com'
-};
+const AUTH_TOKEN_KEY = 'nursing_level_up_token';
 
 export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>({
@@ -32,12 +29,14 @@ export function useAuth() {
   useEffect(() => {
     // Check localStorage on mount
     const storedAuth = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (storedAuth) {
+    const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
+    
+    if (storedAuth && storedToken) {
       try {
         const parsed = JSON.parse(storedAuth);
         setAuthState({
-          isAuthenticated: parsed.isAuthenticated,
-          user: parsed.user,
+          isAuthenticated: true,
+          user: parsed,
           isLoading: false
         });
       } catch (error) {
@@ -57,23 +56,74 @@ export function useAuth() {
     }
   }, []);
 
-  const login = async (): Promise<void> => {
-    return new Promise((resolve) => {
-      setAuthState(prev => ({ ...prev, isLoading: true }));
+  const login = async (email: string): Promise<{ user: User; needsPhone: boolean }> => {
+    setAuthState(prev => ({ ...prev, isLoading: true }));
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Login failed');
+      }
+
+      const data = await response.json();
       
-      // Simulate API delay
-      setTimeout(() => {
-        const newAuthState: AuthState = {
-          isAuthenticated: true,
-          user: mockUser,
-          isLoading: false
-        };
-        
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(newAuthState));
-        setAuthState(newAuthState);
-        resolve();
-      }, 1500);
-    });
+      // Store in localStorage
+      localStorage.setItem(AUTH_TOKEN_KEY, data.authToken);
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data.user));
+      
+      setAuthState({
+        isAuthenticated: true,
+        user: data.user,
+        isLoading: false
+      });
+
+      return {
+        user: data.user,
+        needsPhone: data.needsPhone
+      };
+    } catch (error) {
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+      throw error;
+    }
+  };
+
+  const completeProfile = async (phone: string): Promise<User> => {
+    setAuthState(prev => ({ ...prev, isLoading: true }));
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/complete-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: authState.user?.id, phone })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to complete profile');
+      }
+
+      const data = await response.json();
+      
+      // Update localStorage
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data.user));
+      
+      setAuthState({
+        isAuthenticated: true,
+        user: data.user,
+        isLoading: false
+      });
+
+      return data.user;
+    } catch (error) {
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+      throw error;
+    }
   };
 
   const logout = (): void => {
@@ -84,12 +134,14 @@ export function useAuth() {
     };
     
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem(AUTH_TOKEN_KEY);
     setAuthState(newAuthState);
   };
 
   return {
     ...authState,
     login,
+    completeProfile,
     logout
   };
 }

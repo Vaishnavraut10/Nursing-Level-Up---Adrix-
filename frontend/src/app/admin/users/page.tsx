@@ -3,24 +3,35 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import AdminLayout from '@/layouts/AdminLayout';
+import { fetchWithAdminAuth } from '@/lib/adminAuth';
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    // Mock data for now
-    const mockUsers = [
-      { id: 2, email: 'student1@example.com', name: 'Rahul Sharma', role: 'STUDENT', created_at: '2024-01-10', testsAttempted: 2, purchases: 1 },
-      { id: 3, email: 'student2@example.com', name: 'Priya Patel', role: 'STUDENT', created_at: '2024-01-11', testsAttempted: 1, purchases: 1 },
-      { id: 4, email: 'student3@example.com', name: 'Amit Kumar', role: 'STUDENT', created_at: '2024-01-12', testsAttempted: 1, purchases: 1 },
-      { id: 5, email: 'student4@example.com', name: 'Sneha Singh', role: 'STUDENT', created_at: '2024-01-13', testsAttempted: 1, purchases: 1 },
-      { id: 6, email: 'student5@example.com', name: 'Vikram Joshi', role: 'STUDENT', created_at: '2024-01-14', testsAttempted: 0, purchases: 0 },
-    ];
-    
-    setUsers(mockUsers);
-    setLoading(false);
+    const fetchUsers = async () => {
+      try {
+        const response = await fetchWithAdminAuth('http://localhost:5000/api/admin/users');
+        
+        if (response.ok) {
+          const data = await response.json();
+          setUsers(data);
+        } else {
+          console.error('Failed to fetch users:', response.status);
+          setError('Unable to load users. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        setError(error instanceof Error ? error.message : 'Unable to connect to server.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
   }, []);
 
   const filteredUsers = users.filter(user =>
@@ -33,6 +44,16 @@ export default function AdminUsersPage() {
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
           <div className="text-muted">Loading...</div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-error">{error}</div>
         </div>
       </AdminLayout>
     );

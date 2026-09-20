@@ -3,23 +3,34 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import AdminLayout from '@/layouts/AdminLayout';
+import { fetchWithAdminAuth } from '@/lib/adminAuth';
 
 export default function AdminTestSeriesPage() {
   const [testSeries, setTestSeries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Mock data matching the seed data
-    const mockTestSeries = [
-      { id: 1, title: 'Test Series 01', description: 'Foundation nursing concepts', duration: 45, is_free: true, price: 0, status: 'PUBLISHED', question_count: 50 },
-      { id: 2, title: 'Test Series 02', description: 'Intermediate nursing practice', duration: 45, is_free: true, price: 0, status: 'PUBLISHED', question_count: 50 },
-      { id: 3, title: 'Test Series 03', description: 'Advanced nursing concepts', duration: 45, is_free: false, price: 199, status: 'PUBLISHED', question_count: 50 },
-      { id: 4, title: 'Test Series 04', description: 'Comprehensive nursing practice', duration: 45, is_free: false, price: 199, status: 'PUBLISHED', question_count: 50 },
-      { id: 5, title: 'Test Series 05', description: 'Final preparation test series', duration: 45, is_free: false, price: 199, status: 'DRAFT', question_count: 50 },
-    ];
-    
-    setTestSeries(mockTestSeries);
-    setLoading(false);
+    const fetchTestSeries = async () => {
+      try {
+        const response = await fetchWithAdminAuth('http://localhost:5000/api/admin/test-series');
+        
+        if (response.ok) {
+          const data = await response.json();
+          setTestSeries(data);
+        } else {
+          console.error('Failed to fetch test series:', response.status);
+          setError('Unable to load test series. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error fetching test series:', error);
+        setError(error instanceof Error ? error.message : 'Unable to connect to server.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTestSeries();
   }, []);
 
   if (loading) {
@@ -27,6 +38,16 @@ export default function AdminTestSeriesPage() {
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
           <div className="text-muted">Loading...</div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-error">{error}</div>
         </div>
       </AdminLayout>
     );

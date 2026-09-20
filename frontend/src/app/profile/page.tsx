@@ -1,17 +1,74 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import MainLayout from '@/layouts/MainLayout';
 import Button from '@/components/Button';
 import { useAuth } from '@/hooks/useAuth';
-import { mockResults } from '@/data';
+import { fetchWithAuth } from '@/lib/auth';
 import { fadeUpVariants, useScrollReveal } from '@/utilities/animations';
 
 export default function ProfilePage() {
+  const router = useRouter();
   const scrollReveal = useScrollReveal();
-  const { user, logout } = useAuth();
-  const recentResults = mockResults.slice(0, 5);
+  const { isAuthenticated, logout } = useAuth();
+  
+  const [userData, setUserData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
+    }
+
+    const fetchProfile = async () => {
+      try {
+        const response = await fetchWithAuth('http://localhost:5000/api/auth/me');
+        
+        if (response.ok) {
+          const data = await response.json();
+          setUserData(data.user);
+        } else {
+          console.error('Failed to fetch profile:', response.status);
+          setError('Unable to load profile. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+        setError(error instanceof Error ? error.message : 'Unable to connect to server.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [isAuthenticated, router]);
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-muted">Loading...</div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <MainLayout>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-error">{error}</div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
@@ -26,40 +83,52 @@ export default function ProfilePage() {
             <div className="flex items-center space-x-6">
               <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
                 <span className="text-3xl font-bold text-primary">
-                  {user?.name?.charAt(0).toUpperCase() || 'U'}
+                  {userData?.name?.charAt(0).toUpperCase() || 'U'}
                 </span>
               </div>
               
               <div>
-                <h1 className="text-2xl font-bold text-dark mb-1">{user?.name || 'User'}</h1>
-                <p className="text-muted">{user?.email || 'user@example.com'}</p>
+                <h1 className="text-2xl font-bold text-dark mb-1">{userData?.name || 'User'}</h1>
+                <p className="text-muted">{userData?.email || 'user@example.com'}</p>
+                {userData?.phone && (
+                  <p className="text-sm text-muted">Phone: {userData.phone}</p>
+                )}
               </div>
             </div>
           </div>
         </motion.div>
 
-        {/* Test History */}
+        {/* Account Info */}
         <motion.div
           {...scrollReveal}
           variants={fadeUpVariants}
           className="mb-12"
         >
-          <h2 className="text-xl font-semibold text-dark mb-6">Test History</h2>
+          <h2 className="text-xl font-semibold text-dark mb-6">Account Information</h2>
           
-          <div className="bg-surface border border-border rounded-lg divide-y divide-border">
-            {recentResults.map((result) => (
-              <div key={result.id} className="p-4 flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium text-dark">{result.testSeriesTitle}</h3>
-                  <p className="text-sm text-muted">{result.date}</p>
-                </div>
-                <div className="text-right">
-                  <span className={`text-lg font-bold ${result.percentage >= 80 ? 'text-success' : result.percentage >= 70 ? 'text-primary' : 'text-error'}`}>
-                    {result.percentage}%
-                  </span>
-                </div>
+          <div className="bg-surface border border-border rounded-lg p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <p className="text-sm text-muted mb-1">Name</p>
+                <p className="text-dark">{userData?.name || '-'}</p>
               </div>
-            ))}
+              <div>
+                <p className="text-sm text-muted mb-1">Email</p>
+                <p className="text-dark">{userData?.email || '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted mb-1">Phone</p>
+                <p className="text-dark">{userData?.phone || 'Not provided'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted mb-1">Role</p>
+                <p className="text-dark">{userData?.role || 'STUDENT'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted mb-1">Member Since</p>
+                <p className="text-dark">{userData?.created_at ? new Date(userData.created_at).toLocaleDateString() : '-'}</p>
+              </div>
+            </div>
           </div>
         </motion.div>
 

@@ -6,12 +6,12 @@ INSERT INTO users (email, name, role) VALUES
 ON CONFLICT (email) DO NOTHING;
 
 -- Student Users
-INSERT INTO users (email, name, role) VALUES
-('student1@example.com', 'Rahul Sharma', 'STUDENT'),
-('student2@example.com', 'Priya Patel', 'STUDENT'),
-('student3@example.com', 'Amit Kumar', 'STUDENT'),
-('student4@example.com', 'Sneha Singh', 'STUDENT'),
-('student5@example.com', 'Vikram Joshi', 'STUDENT')
+INSERT INTO users (email, name, phone, role) VALUES
+('student1@example.com', 'Rahul Sharma', '+919876543210', 'STUDENT'),
+('student2@example.com', 'Priya Patel', '+919876543211', 'STUDENT'),
+('student3@example.com', 'Amit Kumar', '+919876543212', 'STUDENT'),
+('student4@example.com', 'Sneha Singh', '+919876543213', 'STUDENT'),
+('student5@example.com', 'Vikram Joshi', '+919876543214', 'STUDENT')
 ON CONFLICT (email) DO NOTHING;
 
 -- Test Series (matching the frontend mock data)

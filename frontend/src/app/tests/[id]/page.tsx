@@ -8,6 +8,8 @@ import Button from '@/components/Button';
 import Modal from '@/components/Modal';
 import ProgressBar from '@/components/ProgressBar';
 import { mcqTransition, useScrollReveal } from '@/utilities/animations';
+import { useAuth } from '@/hooks/useAuth';
+import { fetchWithAuth } from '@/lib/auth';
 
 interface Question {
   id: string;
@@ -26,6 +28,7 @@ export default function TestPage() {
   const router = useRouter();
   const testSeriesId = params.id as string;
   const scrollReveal = useScrollReveal();
+  const { isAuthenticated, user } = useAuth();
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
@@ -34,65 +37,72 @@ export default function TestPage() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [testSeries, setTestSeries] = useState<any>(null);
+  const [attemptId, setAttemptId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Check authentication
+    if (!isAuthenticated) {
+      router.push(`/login?redirect=/tests/${testSeriesId}`);
+      return;
+    }
+
     const fetchData = async () => {
       try {
+        // Start attempt
+        const startResponse = await fetchWithAuth(`http://localhost:5000/api/tests/${testSeriesId}/start`, {
+          method: 'POST'
+        });
+
+        if (startResponse.ok) {
+          const startData = await startResponse.json();
+          setAttemptId(startData.attemptId);
+        } else {
+          const errorData = await startResponse.json();
+          if (errorData.code === 'PURCHASE_REQUIRED') {
+            router.push(`/unlock/${testSeriesId}`);
+            return;
+          }
+          throw new Error(errorData.error || 'Failed to start test');
+        }
+
         // Fetch test series info
         const seriesResponse = await fetch(`http://localhost:5000/api/test-series/${testSeriesId}`);
         if (seriesResponse.ok) {
           const seriesData = await seriesResponse.json();
           setTestSeries(seriesData);
+        } else {
+          console.error('Failed to fetch test series:', seriesResponse.status);
+          setError('Unable to load test series. Please try again.');
         }
 
         // Fetch questions WITHOUT correct answers
-        const questionsResponse = await fetch(`http://localhost:5000/api/test-series/${testSeriesId}/questions`);
+        const questionsResponse = await fetchWithAuth(`http://localhost:5000/api/test-series/${testSeriesId}/questions`);
         if (questionsResponse.ok) {
           const questionsData = await questionsResponse.json();
           setQuestions(questionsData);
+        } else if (questionsResponse.status === 403) {
+          const errorData = await questionsResponse.json();
+          setError(errorData.error || 'This test series requires purchase.');
         } else {
-          // Fallback to mock questions
-          const { questions: mockQuestions } = await import('@/data/questions');
-          // Transform mock questions to match API format
-          const transformedQuestions = mockQuestions.map((q: any) => ({
-            id: q.id,
-            test_series_id: testSeriesId,
-            question_text: q.question,
-            option_a: q.options[0],
-            option_b: q.options[1],
-            option_c: q.options[2],
-            option_d: q.options[3],
-            explanation: q.explanation || '',
-            order_index: q.order || 0
-          }));
-          setQuestions(transformedQuestions);
+          console.error('Failed to fetch questions:', questionsResponse.status);
+          setError('Unable to load questions. Please try again.');
         }
       } catch (error) {
         console.error('Failed to fetch test data:', error);
-        // Fallback to mock data
-        const { testSeries: mockTestSeries } = await import('@/data/testSeries');
-        const { questions: mockQuestions } = await import('@/data/questions');
-        setTestSeries(mockTestSeries.find((ts: any) => ts.id === testSeriesId));
-        const transformedQuestions = mockQuestions.map((q: any) => ({
-          id: q.id,
-          test_series_id: testSeriesId,
-          question_text: q.question,
-          option_a: q.options[0],
-          option_b: q.options[1],
-          option_c: q.options[2],
-          option_d: q.options[3],
-          explanation: q.explanation || '',
-          order_index: q.order || 0
-        }));
-        setQuestions(transformedQuestions);
+        if (error instanceof Error && error.message === 'Authentication required') {
+          // Already handled by fetchWithAuth
+          return;
+        }
+        setError(error instanceof Error ? error.message : 'Unable to connect to server. Please try again.');
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [testSeriesId]);
+  }, [testSeriesId, isAuthenticated, router]);
 
   useEffect(() => {
     if (!testSeries) return;
@@ -153,8 +163,30 @@ export default function TestPage() {
     setShowSubmitModal(true);
   };
 
-  const confirmSubmit = () => {
-    router.push(`/results/${testSeriesId}`);
+  const confirmSubmit = async () => {
+    if (!attemptId) {
+      console.error('No attempt ID');
+      return;
+    }
+
+    try {
+      const response = await fetchWithAuth(`http://localhost:5000/api/tests/${attemptId}/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers: selectedAnswers })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        router.push(`/results/${attemptId}`);
+      } else {
+        console.error('Failed to submit test:', response.status);
+        alert('Failed to submit test. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error submitting test:', error);
+      alert('Unable to connect to server. Please try again.');
+    }
   };
 
   const answeredCount = Object.keys(selectedAnswers).length;
@@ -166,6 +198,18 @@ export default function TestPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center h-64">
             <div className="text-muted">Loading...</div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <MainLayout>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-error">{error}</div>
           </div>
         </div>
       </MainLayout>

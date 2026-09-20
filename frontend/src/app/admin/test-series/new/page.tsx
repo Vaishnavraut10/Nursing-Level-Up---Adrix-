@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/layouts/AdminLayout';
+import { fetchWithAdminAuth } from '@/lib/adminAuth';
 
 export default function CreateTestSeriesPage() {
   const router = useRouter();
@@ -16,11 +17,26 @@ export default function CreateTestSeriesPage() {
     status: 'DRAFT'
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In production, this would call the API
-    console.log('Creating test series:', formData);
-    router.push('/admin/test-series');
+    
+    try {
+      const response = await fetchWithAdminAuth('http://localhost:5000/api/admin/test-series', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      
+      if (response.ok) {
+        router.push('/admin/test-series');
+      } else {
+        console.error('Failed to create test series:', response.status);
+        alert('Failed to create test series. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error creating test series:', error);
+      alert(error instanceof Error ? error.message : 'Unable to connect to server. Please try again.');
+    }
   };
 
   return (

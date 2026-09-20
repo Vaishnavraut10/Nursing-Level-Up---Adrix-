@@ -2,22 +2,34 @@
 
 import React, { useEffect, useState } from 'react';
 import AdminLayout from '@/layouts/AdminLayout';
+import { fetchWithAdminAuth } from '@/lib/adminAuth';
 
 export default function AdminAttemptsPage() {
   const [attempts, setAttempts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Mock attempt data
-    const mockAttempts = [
-      { id: 1, user_name: 'Rahul Sharma', user_email: 'student1@example.com', test_series_title: 'Test Series 01', score: 42, total_questions: 50, started_at: '2024-01-13 10:00', submitted_at: '2024-01-13 10:30', status: 'COMPLETED' },
-      { id: 2, user_name: 'Rahul Sharma', user_email: 'student1@example.com', test_series_title: 'Test Series 02', score: 38, total_questions: 50, started_at: '2024-01-14 14:00', submitted_at: '2024-01-14 14:41', status: 'COMPLETED' },
-      { id: 3, user_name: 'Amit Kumar', user_email: 'student3@example.com', test_series_title: 'Test Series 01', score: 45, total_questions: 50, started_at: '2024-01-15 09:00', submitted_at: '2024-01-15 09:36', status: 'COMPLETED' },
-      { id: 4, user_name: 'Sneha Singh', user_email: 'student4@example.com', test_series_title: 'Test Series 01', score: 40, total_questions: 50, started_at: '2024-01-16 11:00', submitted_at: '2024-01-16 11:45', status: 'COMPLETED' },
-    ];
-    
-    setAttempts(mockAttempts);
-    setLoading(false);
+    const fetchAttempts = async () => {
+      try {
+        const response = await fetchWithAdminAuth('http://localhost:5000/api/admin/attempts');
+        
+        if (response.ok) {
+          const data = await response.json();
+          setAttempts(data);
+        } else {
+          console.error('Failed to fetch attempts:', response.status);
+          setError('Unable to load attempts. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error fetching attempts:', error);
+        setError(error instanceof Error ? error.message : 'Unable to connect to server.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAttempts();
   }, []);
 
   if (loading) {
@@ -25,6 +37,16 @@ export default function AdminAttemptsPage() {
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
           <div className="text-muted">Loading...</div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-error">{error}</div>
         </div>
       </AdminLayout>
     );

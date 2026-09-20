@@ -2,11 +2,15 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import AdminLayout from '@/layouts/AdminLayout';
+import { fetchWithAdminAuth } from '@/lib/adminAuth';
 
 export default function QuestionsManagementPage() {
+  const params = useParams();
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newQuestion, setNewQuestion] = useState({
     question_text: '',
@@ -19,31 +23,63 @@ export default function QuestionsManagementPage() {
   });
 
   useEffect(() => {
-    // Mock questions
-    setQuestions([
-      { id: 1, question_text: 'A patient is receiving heparin therapy...', option_a: 'PT', option_b: 'INR', option_c: 'aPTT', option_d: 'Platelet count', correct_answer: 'C', explanation: 'aPTT is used to monitor heparin therapy.', order_index: 1 },
-      { id: 2, question_text: 'Which intervention is most important...', option_a: 'Deep breathing', option_b: 'Keep drainage below chest', option_c: 'Clamp tube', option_d: 'Milk tube', correct_answer: 'B', explanation: 'Drainage must be below chest level.', order_index: 2 },
-      { id: 3, question_text: 'A patient with type 1 diabetes...', option_a: 'Hypoglycemia', option_b: 'Hyperglycemia', option_c: 'DKA', option_d: 'HHS', correct_answer: 'C', explanation: 'These symptoms indicate DKA.', order_index: 3 },
-      { id: 4, question_text: 'Normal adult respiratory rate...', option_a: '8-10/min', option_b: '12-20/min', option_c: '22-30/min', option_d: '30-40/min', correct_answer: 'B', explanation: 'Normal is 12-20 breaths per minute.', order_index: 4 },
-      { id: 5, question_text: 'Heparin subcutaneous injection site...', option_a: 'Deltoid', option_b: 'Vastus lateralis', option_c: 'Abdominal', option_d: 'Dorsogluteal', correct_answer: 'C', explanation: 'Abdominal subcutaneous tissue reduces bruising.', order_index: 5 },
-    ]);
-    setLoading(false);
-  }, []);
+    const fetchQuestions = async () => {
+      try {
+        const response = await fetchWithAdminAuth(`http://localhost:5000/api/admin/test-series/${params.id}/questions`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          setQuestions(data);
+        } else {
+          console.error('Failed to fetch questions:', response.status);
+          setError('Unable to load questions. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error fetching questions:', error);
+        setError(error instanceof Error ? error.message : 'Unable to connect to server.');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const handleAddQuestion = (e: React.FormEvent) => {
+    fetchQuestions();
+  }, [params.id]);
+
+  const handleAddQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
-    // API call to add question
-    console.log('Adding question:', newQuestion);
-    setShowAddForm(false);
-    setNewQuestion({
-      question_text: '',
-      option_a: '',
-      option_b: '',
-      option_c: '',
-      option_d: '',
-      correct_answer: 'A',
-      explanation: ''
-    });
+    
+    try {
+      const response = await fetchWithAdminAuth(`http://localhost:5000/api/admin/test-series/${params.id}/questions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newQuestion)
+      });
+      
+      if (response.ok) {
+        setShowAddForm(false);
+        setNewQuestion({
+          question_text: '',
+          option_a: '',
+          option_b: '',
+          option_c: '',
+          option_d: '',
+          correct_answer: 'A',
+          explanation: ''
+        });
+        // Refresh questions
+        const fetchResponse = await fetchWithAdminAuth(`http://localhost:5000/api/admin/test-series/${params.id}/questions`);
+        if (fetchResponse.ok) {
+          const data = await fetchResponse.json();
+          setQuestions(data);
+        }
+      } else {
+        console.error('Failed to add question:', response.status);
+        alert('Failed to add question. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error adding question:', error);
+      alert(error instanceof Error ? error.message : 'Unable to connect to server. Please try again.');
+    }
   };
 
   const handleDeleteQuestion = (id: number) => {
@@ -57,6 +93,16 @@ export default function QuestionsManagementPage() {
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
           <div className="text-muted">Loading...</div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-error">{error}</div>
         </div>
       </AdminLayout>
     );

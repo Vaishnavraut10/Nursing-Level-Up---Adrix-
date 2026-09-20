@@ -49,12 +49,26 @@ router.get('/:id/questions', async (req, res) => {
     
     // Verify test series is published
     const testSeriesResult = await query(
-      'SELECT id FROM test_series WHERE id = $1 AND status = $2',
+      'SELECT id, is_free FROM test_series WHERE id = $1 AND status = $2',
       [id, 'PUBLISHED']
     );
     
     if (testSeriesResult.rows.length === 0) {
       return res.status(404).json({ error: 'Test series not found or not published' });
+    }
+    
+    const testSeries = testSeriesResult.rows[0];
+    
+    // If paid test, check if user has purchased
+    // Note: This requires real authentication to identify the user
+    // For development, we'll allow access with a header
+    const devUnlock = req.headers['x-dev-unlock'];
+    
+    if (!testSeries.is_free && !devUnlock) {
+      return res.status(403).json({ 
+        error: 'This test series requires purchase. Please unlock it first.',
+        requiresPurchase: true
+      });
     }
     
     // Get questions WITHOUT correct_answer

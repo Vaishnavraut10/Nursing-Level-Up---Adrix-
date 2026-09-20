@@ -2,21 +2,34 @@
 
 import React, { useEffect, useState } from 'react';
 import AdminLayout from '@/layouts/AdminLayout';
+import { fetchWithAdminAuth } from '@/lib/adminAuth';
 
 export default function AdminPurchasesPage() {
   const [purchases, setPurchases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Mock purchase data
-    const mockPurchases = [
-      { id: 1, user_name: 'Rahul Sharma', user_email: 'student1@example.com', test_series_title: 'Test Series 03', amount: 199, provider: 'MOCK', payment_id: 'pay_mock_123', order_id: 'order_mock_123', status: 'SUCCESS', created_at: '2024-01-12' },
-      { id: 2, user_name: 'Amit Kumar', user_email: 'student3@example.com', test_series_title: 'Test Series 03', amount: 199, provider: 'MOCK', payment_id: 'pay_mock_124', order_id: 'order_mock_124', status: 'SUCCESS', created_at: '2024-01-13' },
-      { id: 3, user_name: 'Sneha Singh', user_email: 'student4@example.com', test_series_title: 'Test Series 04', amount: 199, provider: 'MOCK', payment_id: 'pay_mock_125', order_id: 'order_mock_125', status: 'SUCCESS', created_at: '2024-01-14' },
-    ];
-    
-    setPurchases(mockPurchases);
-    setLoading(false);
+    const fetchPurchases = async () => {
+      try {
+        const response = await fetchWithAdminAuth('http://localhost:5000/api/admin/purchases');
+        
+        if (response.ok) {
+          const data = await response.json();
+          setPurchases(data);
+        } else {
+          console.error('Failed to fetch purchases:', response.status);
+          setError('Unable to load purchases. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error fetching purchases:', error);
+        setError(error instanceof Error ? error.message : 'Unable to connect to server.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPurchases();
   }, []);
 
   if (loading) {
@@ -24,6 +37,16 @@ export default function AdminPurchasesPage() {
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
           <div className="text-muted">Loading...</div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-error">{error}</div>
         </div>
       </AdminLayout>
     );

@@ -2,47 +2,59 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import AdminLayout from '@/layouts/AdminLayout';
+import { fetchWithAdminAuth } from '@/lib/adminAuth';
 
 export default function ImportQuestionsPage() {
+  const params = useParams();
   const [htmlContent, setHtmlContent] = useState('');
   const [parsedQuestions, setParsedQuestions] = useState<any[]>([]);
   const [showPreview, setShowPreview] = useState(false);
 
-  const handleParse = () => {
-    // Mock HTML parsing
-    const mockQuestions = [
-      {
-        question: 'Which of the following is the normal adult respiratory rate?',
-        options: ['8–10/min', '12–20/min', '22–30/min', '30–40/min'],
-        correctAnswer: 'B',
-        explanation: 'Normal respiratory rate is 12-20 breaths per minute.'
-      },
-      {
-        question: 'A patient with hypertension should be taught to:',
-        options: ['Increase sodium intake', 'Limit sodium intake', 'Avoid exercise', 'Stop all medications'],
-        correctAnswer: 'B',
-        explanation: 'Sodium restriction is key for hypertension management.'
-      },
-      {
-        question: 'The normal range for blood glucose fasting is:',
-        options: ['70-99 mg/dL', '100-125 mg/dL', '126-140 mg/dL', '141-199 mg/dL'],
-        correctAnswer: 'A',
-        explanation: 'Normal fasting blood glucose is 70-99 mg/dL.'
+  const handleParse = async () => {
+    try {
+      const response = await fetchWithAdminAuth(`http://localhost:5000/api/admin/test-series/${params.id}/import/html`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: htmlContent })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setParsedQuestions(data.validQuestions);
+        setShowPreview(true);
+      } else {
+        console.error('Failed to parse HTML:', response.status);
+        alert('Failed to parse HTML. Please check the format.');
       }
-    ];
-    
-    setParsedQuestions(mockQuestions);
-    setShowPreview(true);
+    } catch (error) {
+      console.error('Error parsing HTML:', error);
+      alert(error instanceof Error ? error.message : 'Unable to connect to server. Please try again.');
+    }
   };
 
-  const handleConfirmImport = () => {
-    // API call to confirm import
-    console.log('Importing questions:', parsedQuestions);
-    alert('Questions imported successfully!');
-    setShowPreview(false);
-    setHtmlContent('');
-    setParsedQuestions([]);
+  const handleConfirmImport = async () => {
+    try {
+      const response = await fetchWithAdminAuth(`http://localhost:5000/api/admin/test-series/${params.id}/import/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questions: parsedQuestions })
+      });
+      
+      if (response.ok) {
+        alert('Questions imported successfully!');
+        setShowPreview(false);
+        setHtmlContent('');
+        setParsedQuestions([]);
+      } else {
+        console.error('Failed to import questions:', response.status);
+        alert('Failed to import questions. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error importing questions:', error);
+      alert(error instanceof Error ? error.message : 'Unable to connect to server. Please try again.');
+    }
   };
 
   return (

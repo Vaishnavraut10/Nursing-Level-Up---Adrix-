@@ -1,4 +1,5 @@
 const express = require('express');
+const cheerio = require('cheerio');
 const { query } = require('../../config/database');
 const { requireAdmin } = require('../../middleware/adminAuth');
 
@@ -201,49 +202,101 @@ router.post('/test-series/:id/import/confirm', requireAdmin, async (req, res) =>
   }
 });
 
-// Simple HTML question parser
+// HTML question parser using cheerio
 function parseHTMLQuestions(html) {
   const questions = [];
+  const $ = cheerio.load(html);
   
-  // This is a basic implementation - look for common HTML patterns
-  // In production, use cheerio or similar for robust parsing
-  
-  // Split by common question delimiters
-  const parts = html.split(/<[^>]*>/).filter(p => p.trim());
+  // Find question blocks - flexible patterns
+  const text = $.text();
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
   
   let currentQuestion = null;
   let currentOptions = [];
+  let currentExplanation = null;
+  let currentCorrectAnswer = null;
   
-  parts.forEach((part, index) => {
-    const trimmed = part.trim();
+  // Patterns for identifying question markers
+  const questionPatterns = [
+    /^(\d+\.|Q\d+\.|\d+\))/,
+    /^Question\s*\d+/i
+  ];
+  
+  // Patterns for identifying option markers
+  const optionPatterns = [
+    /^([A-D]\)|[A-D]\.|[A-D]\)\s*)/,
+    /^(\([A-D]\))/,
+    /^([A-D]:)/
+  ];
+  
+  // Patterns for identifying correct answer
+  const correctAnswerPatterns = [
+    /correct\s*answer\s*[:\s]*([A-D])/i,
+    /answer\s*[:\s]*([A-D])/i,
+    /ans\s*[:\s]*([A-D])/i
+  ];
+  
+  // Patterns for identifying explanation
+  const explanationPatterns = [
+    /explanation\s*[:\s]/i,
+    /reason\s*[:\s]/i,
+    /solution\s*[:\s]/i
+  ];
+  
+  lines.forEach((line) => {
+    // Check if line starts a new question
+    const isQuestion = questionPatterns.some(pattern => pattern.test(line));
     
-    // Check if it looks like a question
-    if (trimmed.length > 20 && !trimmed.match(/^[A-D]\./)) {
-      if (currentQuestion) {
+    if (isQuestion && line.length > 20) {
+      // Save previous question if exists
+      if (currentQuestion && currentOptions.length === 4) {
         questions.push({
           question: currentQuestion,
           options: currentOptions,
-          correctAnswer: null,
-          explanation: null
+          correctAnswer: currentCorrectAnswer,
+          explanation: currentExplanation
         });
       }
-      currentQuestion = trimmed;
+      
+      // Start new question
+      currentQuestion = line.replace(/^\d+\.|Q\d+\.|\d+\)|Question\s*\d+/i, '').trim();
       currentOptions = [];
+      currentExplanation = null;
+      currentCorrectAnswer = null;
     }
     
-    // Check if it looks like an option
-    if (trimmed.match(/^[A-D]\./)) {
-      currentOptions.push(trimmed.replace(/^[A-D]\.\s*/, ''));
+    // Check if line is an option
+    const optionMatch = optionPatterns.find(pattern => pattern.test(line));
+    if (optionMatch) {
+      const optionText = line.replace(optionMatch, '').trim();
+      if (optionText) {
+        currentOptions.push(optionText);
+      }
+    }
+    
+    // Check if line contains correct answer
+    const correctMatch = correctAnswerPatterns.find(pattern => pattern.test(line));
+    if (correctMatch) {
+      const match = line.match(correctMatch);
+      if (match && match[1]) {
+        currentCorrectAnswer = match[1].toUpperCase();
+      }
+    }
+    
+    // Check if line is explanation
+    const isExplanation = explanationPatterns.some(pattern => pattern.test(line));
+    if (isExplanation) {
+      currentExplanation = line.replace(/explanation\s*[:\s]|reason\s*[:\s]|solution\s*[:\s]/i, '').trim();
     }
   });
   
   // Add last question
-  if (currentQuestion) {
+  if (currentQuestion && currentOptions.length === 4) {
     questions.push({
       question: currentQuestion,
       options: currentOptions,
-      correctAnswer: null,
-      explanation: null
+      correctAnswer: currentCorrectAnswer,
+      explanation: currentExplanation
     });
   }
   

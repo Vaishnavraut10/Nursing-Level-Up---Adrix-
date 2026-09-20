@@ -22,6 +22,7 @@ export default function TestSeriesPage() {
   const scrollReveal = useScrollReveal();
   const [testSeries, setTestSeries] = useState<TestSeries[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Fetch test series from backend API
@@ -32,17 +33,12 @@ export default function TestSeriesPage() {
           const data = await response.json();
           setTestSeries(data);
         } else {
-          // Fallback to mock data if backend is not available
-          console.log('Backend not available, using mock data');
-          // Import mock data as fallback
-          const { testSeries: mockTestSeries } = await import('@/data/testSeries');
-          setTestSeries(mockTestSeries);
+          console.error('Failed to fetch test series:', response.status);
+          setError('Unable to load test series. Please try again.');
         }
       } catch (error) {
         console.error('Failed to fetch test series:', error);
-        // Fallback to mock data
-        const { testSeries: mockTestSeries } = await import('@/data/testSeries');
-        setTestSeries(mockTestSeries);
+        setError('Unable to connect to server. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -60,6 +56,18 @@ export default function TestSeriesPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center h-64">
             <div className="text-muted">Loading...</div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <MainLayout>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-error">{error}</div>
           </div>
         </div>
       </MainLayout>
