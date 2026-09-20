@@ -12,25 +12,8 @@
   --border: #E2E8F0;
   --success: #16A34A;
   --error: #DC2626;
+  --warning: #F59E0B;
   --foreground: #17332F;
-  
-  /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #0F766E 0%, #14B8A6 100%);
-  --gradient-secondary: linear-gradient(135deg, #17332F 0%, #0F766E 100%);
-  --gradient-accent: linear-gradient(135deg, #F59E0B 0%, #EF4444 100%);
-  --gradient-success: linear-gradient(135deg, #16A34A 0%, #22C55E 100%);
-  --gradient-hero: linear-gradient(135deg, #0F766E 0%, #0D9488 50%, #14B8A6 100%);
-  
-  /* Glassmorphism */
-  --glass-bg: rgba(255, 255, 255, 0.1);
-  --glass-bg-light: rgba(255, 255, 255, 0.25);
-  --glass-border: rgba(255, 255, 255, 0.2);
-  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
-  
-  /* Glow effects */
-  --glow-primary: 0 0 40px rgba(15, 118, 110, 0.3);
-  --glow-secondary: 0 0 40px rgba(20, 184, 166, 0.2);
-  --glow-accent: 0 0 40px rgba(245, 158, 11, 0.3);
 }
 
 @theme inline {
@@ -44,6 +27,7 @@
   --color-border: var(--border);
   --color-success: var(--success);
   --color-error: var(--error);
+  --color-warning: var(--warning);
   --color-foreground: var(--foreground);
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 }
@@ -79,131 +63,10 @@ body {
   background: var(--primary);
 }
 
-/* Glassmorphism utilities */
-.glass {
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
-}
-
-.glass-light {
-  background: var(--glass-bg-light);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--glass-border);
-}
-
-.glass-shadow {
-  box-shadow: var(--glass-shadow);
-}
-
-/* Gradient utilities */
-.gradient-text {
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.gradient-bg {
-  background: var(--gradient-primary);
-}
-
-.gradient-bg-secondary {
-  background: var(--gradient-secondary);
-}
-
-/* Glow utilities */
-.glow-primary {
-  box-shadow: var(--glow-primary);
-}
-
-.glow-secondary {
-  box-shadow: var(--glow-secondary);
-}
-
-.glow-accent {
-  box-shadow: var(--glow-accent);
-}
-
-/* Floating animation */
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0px) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-20px) rotate(2deg);
-  }
-}
-
-.float-animation {
-  animation: float 6s ease-in-out infinite;
-}
-
-.float-animation-delayed {
-  animation: float 6s ease-in-out infinite;
-  animation-delay: 2s;
-}
-
-.float-animation-slow {
-  animation: float 8s ease-in-out infinite;
-}
-
-/* Pulse glow animation */
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(15, 118, 110, 0.2);
-  }
-  50% {
-    box-shadow: 0 0 40px rgba(15, 118, 110, 0.4);
-  }
-}
-
-.pulse-glow {
-  animation: pulse-glow 3s ease-in-out infinite;
-}
-
-/* Gradient shift animation */
-@keyframes gradient-shift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-.gradient-animated {
-  background: var(--gradient-primary);
-  background-size: 200% 200%;
-  animation: gradient-shift 5s ease infinite;
-}
-
-/* 3D transform utilities */
-.perspective-1000 {
-  perspective: 1000px;
-}
-
-.transform-3d {
-  transform-style: preserve-3d;
-}
-
-/* Floating animation */
-.float-animation {
-  animation: float 6s ease-in-out infinite;
-}
-
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-20px);
-  }
+/* Locked state indicator */
+.locked-indicator {
+  opacity: 0.6;
+  filter: grayscale(0.3);
 }
 
 /* Reduced motion support */
@@ -214,20 +77,5 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-  }
-  
-  .float-animation,
-  .float-animation-delayed,
-  .float-animation-slow,
-  .pulse-glow,
-  .gradient-animated {
-    animation: none;
-  }
-  
-  .glass,
-  .glass-light,
-  .glass-dark {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
 }

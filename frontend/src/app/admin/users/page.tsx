@@ -1,28 +1,88 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import AdminLayout from '@/layouts/AdminLayout';
+
 export default function AdminUsersPage() {
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <a href="/admin" className="text-xl font-semibold text-gray-800">Admin Dashboard</a>
-            </div>
-            <div className="flex items-center space-x-4">
-              <a href="/admin/users" className="text-green-600 px-3 py-2 rounded-md text-sm font-medium">Users</a>
-              <a href="/admin/courses" className="text-gray-600 hover:text-green-600 px-3 py-2 rounded-md text-sm font-medium">Courses</a>
-              <a href="/admin/tests" className="text-gray-600 hover:text-green-600 px-3 py-2 rounded-md text-sm font-medium">Tests</a>
-              <a href="/admin/results" className="text-gray-600 hover:text-green-600 px-3 py-2 rounded-md text-sm font-medium">Results</a>
-            </div>
-          </div>
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    // Mock data for now
+    const mockUsers = [
+      { id: 2, email: 'student1@example.com', name: 'Rahul Sharma', role: 'STUDENT', created_at: '2024-01-10', testsAttempted: 2, purchases: 1 },
+      { id: 3, email: 'student2@example.com', name: 'Priya Patel', role: 'STUDENT', created_at: '2024-01-11', testsAttempted: 1, purchases: 1 },
+      { id: 4, email: 'student3@example.com', name: 'Amit Kumar', role: 'STUDENT', created_at: '2024-01-12', testsAttempted: 1, purchases: 1 },
+      { id: 5, email: 'student4@example.com', name: 'Sneha Singh', role: 'STUDENT', created_at: '2024-01-13', testsAttempted: 1, purchases: 1 },
+      { id: 6, email: 'student5@example.com', name: 'Vikram Joshi', role: 'STUDENT', created_at: '2024-01-14', testsAttempted: 0, purchases: 0 },
+    ];
+    
+    setUsers(mockUsers);
+    setLoading(false);
+  }, []);
+
+  const filteredUsers = users.filter(user =>
+    user.name.toLowerCase().includes(search.toLowerCase()) ||
+    user.email.toLowerCase().includes(search.toLowerCase())
+  );
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted">Loading...</div>
         </div>
-      </nav>
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">Manage Users</h2>
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-          <p className="text-gray-600">User management interface will be implemented here.</p>
+      </AdminLayout>
+    );
+  }
+
+  return (
+    <AdminLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-dark">Users</h1>
+          <input
+            type="text"
+            placeholder="Search users..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+
+        <div className="bg-surface border border-border rounded-lg overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border bg-primary/5">
+                <th className="text-left py-3 px-6 text-sm font-medium text-dark">Name</th>
+                <th className="text-left py-3 px-6 text-sm font-medium text-dark">Email</th>
+                <th className="text-left py-3 px-6 text-sm font-medium text-dark">Tests Attempted</th>
+                <th className="text-left py-3 px-6 text-sm font-medium text-dark">Purchases</th>
+                <th className="text-left py-3 px-6 text-sm font-medium text-dark">Registered</th>
+                <th className="text-left py-3 px-6 text-sm font-medium text-dark">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredUsers.map((user) => (
+                <tr key={user.id} className="border-b border-border hover:bg-primary/5">
+                  <td className="py-4 px-6 text-sm text-dark">{user.name}</td>
+                  <td className="py-4 px-6 text-sm text-muted">{user.email}</td>
+                  <td className="py-4 px-6 text-sm text-dark">{user.testsAttempted}</td>
+                  <td className="py-4 px-6 text-sm text-dark">{user.purchases}</td>
+                  <td className="py-4 px-6 text-sm text-muted">{user.created_at}</td>
+                  <td className="py-4 px-6">
+                    <Link href={`/admin/users/${user.id}`} className="text-primary hover:underline text-sm">
+                      View Details
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 }

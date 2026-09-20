@@ -2,6 +2,13 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const healthRoutes = require('./routes/health');
+const adminDashboardRoutes = require('./routes/admin/dashboard');
+const adminUsersRoutes = require('./routes/admin/users');
+const adminTestSeriesRoutes = require('./routes/admin/testSeries');
+const adminQuestionsRoutes = require('./routes/admin/questions');
+const adminPurchasesRoutes = require('./routes/admin/purchases');
+const adminAttemptsRoutes = require('./routes/admin/attempts');
+const publicTestSeriesRoutes = require('./routes/public/testSeries');
 const { testConnection } = require('./config/database');
 
 const app = express();
@@ -13,10 +20,17 @@ app.use(express.json());
 
 // Routes
 app.use('/api', healthRoutes);
+app.use('/api/admin', adminDashboardRoutes);
+app.use('/api/admin', adminUsersRoutes);
+app.use('/api/admin', adminTestSeriesRoutes);
+app.use('/api/admin', adminQuestionsRoutes);
+app.use('/api/admin', adminPurchasesRoutes);
+app.use('/api/admin', adminAttemptsRoutes);
+app.use('/api/test-series', publicTestSeriesRoutes);
 
 // Health check endpoint
 app.get('/', (req, res) => {
-  res.json({ message: 'NurseLearn Backend API', status: 'running' });
+  res.json({ message: 'Nursing Level Up Backend API', status: 'running' });
 });
 
 // Start server

@@ -6,26 +6,96 @@ import { motion, AnimatePresence } from 'framer-motion';
 import MainLayout from '@/layouts/MainLayout';
 import Button from '@/components/Button';
 import Modal from '@/components/Modal';
-import GlassCard from '@/components/GlassCard';
 import ProgressBar from '@/components/ProgressBar';
-import { getTestById, getQuestionsByTestId } from '@/data';
-import { mcqTransition, useScrollReveal, glowPulseVariants } from '@/utilities/animations';
+import { mcqTransition, useScrollReveal } from '@/utilities/animations';
+
+interface Question {
+  id: string;
+  test_series_id: string;
+  question_text: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  explanation: string;
+  order_index: number;
+}
 
 export default function TestPage() {
   const params = useParams();
   const router = useRouter();
-  const testId = params.id as string;
-  const test = getTestById(testId);
-  const questions = getQuestionsByTestId(testId);
+  const testSeriesId = params.id as string;
   const scrollReveal = useScrollReveal();
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
-  const [timeRemaining, setTimeRemaining] = useState(test?.duration || 60 * 60); // in seconds
+  const [markedForReview, setMarkedForReview] = useState<Set<string>>(new Set());
+  const [timeRemaining, setTimeRemaining] = useState(45 * 60); // 45 minutes in seconds
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [testSeries, setTestSeries] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!test) return;
+    const fetchData = async () => {
+      try {
+        // Fetch test series info
+        const seriesResponse = await fetch(`http://localhost:5000/api/test-series/${testSeriesId}`);
+        if (seriesResponse.ok) {
+          const seriesData = await seriesResponse.json();
+          setTestSeries(seriesData);
+        }
+
+        // Fetch questions WITHOUT correct answers
+        const questionsResponse = await fetch(`http://localhost:5000/api/test-series/${testSeriesId}/questions`);
+        if (questionsResponse.ok) {
+          const questionsData = await questionsResponse.json();
+          setQuestions(questionsData);
+        } else {
+          // Fallback to mock questions
+          const { questions: mockQuestions } = await import('@/data/questions');
+          // Transform mock questions to match API format
+          const transformedQuestions = mockQuestions.map((q: any) => ({
+            id: q.id,
+            test_series_id: testSeriesId,
+            question_text: q.question,
+            option_a: q.options[0],
+            option_b: q.options[1],
+            option_c: q.options[2],
+            option_d: q.options[3],
+            explanation: q.explanation || '',
+            order_index: q.order || 0
+          }));
+          setQuestions(transformedQuestions);
+        }
+      } catch (error) {
+        console.error('Failed to fetch test data:', error);
+        // Fallback to mock data
+        const { testSeries: mockTestSeries } = await import('@/data/testSeries');
+        const { questions: mockQuestions } = await import('@/data/questions');
+        setTestSeries(mockTestSeries.find((ts: any) => ts.id === testSeriesId));
+        const transformedQuestions = mockQuestions.map((q: any) => ({
+          id: q.id,
+          test_series_id: testSeriesId,
+          question_text: q.question,
+          option_a: q.options[0],
+          option_b: q.options[1],
+          option_c: q.options[2],
+          option_d: q.options[3],
+          explanation: q.explanation || '',
+          order_index: q.order || 0
+        }));
+        setQuestions(transformedQuestions);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [testSeriesId]);
+
+  useEffect(() => {
+    if (!testSeries) return;
 
     const timer = setInterval(() => {
       setTimeRemaining((prev) => {
@@ -39,7 +109,7 @@ export default function TestPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [test]);
+  }, [testSeries]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -66,28 +136,54 @@ export default function TestPage() {
     }
   };
 
+  const handleMarkForReview = () => {
+    const currentQuestion = questions[currentQuestionIndex];
+    setMarkedForReview(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(currentQuestion.id)) {
+        newSet.delete(currentQuestion.id);
+      } else {
+        newSet.add(currentQuestion.id);
+      }
+      return newSet;
+    });
+  };
+
   const handleSubmit = () => {
     setShowSubmitModal(true);
   };
 
   const confirmSubmit = () => {
-    router.push(`/results/${testId}`);
+    router.push(`/results/${testSeriesId}`);
   };
 
   const answeredCount = Object.keys(selectedAnswers).length;
   const unansweredCount = questions.length - answeredCount;
 
-  if (!test || !questions.length) {
+  if (loading) {
     return (
       <MainLayout>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <p className="text-muted">Test not found.</p>
+          <div className="flex items-center justify-center h-64">
+            <div className="text-muted">Loading...</div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!testSeries || questions.length === 0) {
+    return (
+      <MainLayout>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <p className="text-muted">Test series not found or no questions available.</p>
         </div>
       </MainLayout>
     );
   }
 
   const currentQuestion = questions[currentQuestionIndex];
+  const isTimeLow = timeRemaining < 300; // Less than 5 minutes
 
   return (
     <MainLayout>
@@ -98,25 +194,20 @@ export default function TestPage() {
           className="mb-8"
         >
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-dark">
-              <span className="gradient-text">{test.title}</span>
-            </h1>
-            <motion.div
-              variants={glowPulseVariants}
-              animate={timeRemaining < 300 ? "animate" : ""}
-              className={`px-6 py-3 rounded-xl font-mono text-lg font-bold shadow-lg ${
-                timeRemaining < 300 
-                  ? 'bg-gradient-to-br from-error/20 to-error/10 text-error border border-error/30' 
-                  : 'bg-gradient-to-br from-primary/20 to-primary/10 text-primary border border-primary/30'
-              }`}>
+            <div>
+              <h1 className="text-2xl font-bold text-dark">{testSeries.title}</h1>
+              <p className="text-sm text-muted">Question {currentQuestionIndex + 1} of {questions.length}</p>
+            </div>
+            <div className={`px-6 py-3 rounded-lg font-mono text-lg font-bold ${
+              isTimeLow 
+                ? 'bg-error/10 text-error border border-error/30' 
+                : 'bg-primary/10 text-primary border border-primary/30'
+            }`}>
               {formatTime(timeRemaining)}
-            </motion.div>
+            </div>
           </div>
           
-          <div className="flex items-center justify-between text-sm text-muted">
-            <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
-            <ProgressBar progress={((currentQuestionIndex + 1) / questions.length) * 100} showLabel={false} size="sm" />
-          </div>
+          <ProgressBar progress={((currentQuestionIndex + 1) / questions.length) * 100} showLabel={false} size="sm" />
         </motion.div>
 
         {/* Question */}
@@ -127,50 +218,50 @@ export default function TestPage() {
             initial="initial"
             animate="animate"
             exit="exit"
-            className="glass rounded-2xl p-6 md:p-8 mb-6"
+            className="bg-surface border border-border rounded-lg p-6 md:p-8 mb-6"
           >
             <div className="mb-6">
               <span className="text-sm text-muted font-medium">Question {currentQuestionIndex + 1}</span>
             </div>
             
             <h3 className="text-lg md:text-xl font-semibold text-dark mb-6">
-              {currentQuestion.question}
+              {currentQuestion.question_text}
             </h3>
             
             <div className="space-y-3">
-              {currentQuestion.options.map((option, index) => {
+              {[
+                currentQuestion.option_a,
+                currentQuestion.option_b,
+                currentQuestion.option_c,
+                currentQuestion.option_d
+              ].map((option, index) => {
                 const isSelected = selectedAnswers[currentQuestion.id] === index;
                 
                 return (
-                  <motion.button
+                  <button
                     key={index}
-                    whileHover={{ scale: 1.01 }}
-                    whileTap={{ scale: 0.99 }}
                     onClick={() => handleAnswerSelect(currentQuestion.id, index)}
-                    className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 ${
+                    className={`w-full text-left p-4 rounded-lg border-2 transition-all duration-200 ${
                       isSelected 
-                        ? 'border-primary bg-gradient-to-br from-primary/10 to-primary/5 shadow-lg' 
-                        : 'border-border bg-white/50 backdrop-blur-sm hover:border-primary/50 hover:bg-white/80'
+                        ? 'border-primary bg-primary/5' 
+                        : 'border-border bg-white hover:border-primary/50'
                     }`}
                   >
                     <div className="flex items-start space-x-3">
-                      <motion.div
-                        animate={isSelected ? { scale: 1.1 } : { scale: 1 }}
-                        className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center mt-0.5 ${
-                          isSelected ? 'border-primary bg-primary text-white shadow-md' : 'border-border'
-                        }`}
-                      >
+                      <div className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center mt-0.5 ${
+                        isSelected ? 'border-primary bg-primary text-white' : 'border-border'
+                      }`}>
                         {isSelected && (
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
                         )}
-                      </motion.div>
+                      </div>
                       <span className={`text-sm ${isSelected ? 'text-dark font-medium' : 'text-muted'}`}>
                         {option}
                       </span>
                     </div>
-                  </motion.button>
+                  </button>
                 );
               })}
             </div>
@@ -190,26 +281,12 @@ export default function TestPage() {
             Previous
           </Button>
           
-          <div className="flex items-center space-x-2">
-            {/* Question Navigator */}
-            <div className="hidden md:flex items-center space-x-1">
-              {questions.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentQuestionIndex(index)}
-                  className={`w-8 h-8 rounded-full text-sm font-medium transition-colors ${
-                    currentQuestionIndex === index
-                      ? 'bg-primary text-white'
-                      : selectedAnswers[questions[index].id] !== undefined
-                      ? 'bg-success/10 text-success border border-success'
-                      : 'bg-surface border border-border text-muted hover:border-primary'
-                  }`}
-                >
-                  {index + 1}
-                </button>
-              ))}
-            </div>
-          </div>
+          <Button
+            onClick={handleMarkForReview}
+            variant={markedForReview.has(currentQuestion.id) ? 'outline' : 'secondary'}
+          >
+            {markedForReview.has(currentQuestion.id) ? 'Unmark Review' : 'Mark for Review'}
+          </Button>
           
           {currentQuestionIndex === questions.length - 1 ? (
             <Button onClick={handleSubmit}>
@@ -222,40 +299,97 @@ export default function TestPage() {
           )}
         </motion.div>
 
-        {/* Submit Modal */}
-        <Modal
-          isOpen={showSubmitModal}
-          onClose={() => setShowSubmitModal(false)}
-          title="Submit this test?"
+        {/* Question Navigator */}
+        <motion.div
+          {...scrollReveal}
+          className="mt-8 bg-surface border border-border rounded-lg p-6"
         >
-          <div className="space-y-4">
-            <div className="flex items-center justify-between py-2 border-b border-border">
-              <span className="text-muted">Answered</span>
-              <span className="font-semibold text-dark">{answeredCount}</span>
+          <h3 className="font-semibold text-dark mb-4">Question Navigator</h3>
+          
+          <div className="grid grid-cols-10 gap-2 mb-4">
+            {questions.map((q, index) => {
+              const isAnswered = selectedAnswers[q.id] !== undefined;
+              const isMarked = markedForReview.has(q.id);
+              const isCurrent = index === currentQuestionIndex;
+              
+              return (
+                <button
+                  key={q.id}
+                  onClick={() => setCurrentQuestionIndex(index)}
+                  className={`w-8 h-8 rounded text-sm font-medium transition-colors ${
+                    isCurrent
+                      ? 'bg-primary text-white'
+                      : isMarked
+                      ? 'bg-warning text-white'
+                      : isAnswered
+                      ? 'bg-success text-white'
+                      : 'bg-border text-muted hover:bg-border/80'
+                  }`}
+                >
+                  {index + 1}
+                </button>
+              );
+            })}
+          </div>
+          
+          <div className="flex items-center space-x-4 text-xs text-muted">
+            <div className="flex items-center space-x-1">
+              <div className="w-4 h-4 bg-success rounded"></div>
+              <span>Answered</span>
             </div>
-            <div className="flex items-center justify-between py-2 border-b border-border">
-              <span className="text-muted">Unanswered</span>
-              <span className="font-semibold text-dark">{unansweredCount}</span>
+            <div className="flex items-center space-x-1">
+              <div className="w-4 h-4 bg-border rounded"></div>
+              <span>Unanswered</span>
             </div>
-            
-            <div className="flex space-x-3 pt-4">
-              <Button
-                onClick={() => setShowSubmitModal(false)}
-                variant="outline"
-                className="flex-1"
-              >
-                Continue Test
-              </Button>
-              <Button
-                onClick={confirmSubmit}
-                className="flex-1"
-              >
-                Submit Test
-              </Button>
+            <div className="flex items-center space-x-1">
+              <div className="w-4 h-4 bg-warning rounded"></div>
+              <span>Marked</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <div className="w-4 h-4 bg-primary rounded"></div>
+              <span>Current</span>
             </div>
           </div>
-        </Modal>
+        </motion.div>
       </div>
+
+      {/* Submit Modal */}
+      <Modal
+        isOpen={showSubmitModal}
+        onClose={() => setShowSubmitModal(false)}
+        title="Submit Test?"
+      >
+        <div className="space-y-4">
+          <p className="text-muted">
+            You have {unansweredCount} unanswered question{unansweredCount !== 1 ? 's' : ''}. Are you sure you want to submit?
+          </p>
+          
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted">Answered:</span>
+            <span className="text-dark font-medium">{answeredCount}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted">Unanswered:</span>
+            <span className="text-dark font-medium">{unansweredCount}</span>
+          </div>
+          
+          <div className="flex space-x-3 pt-4">
+            <Button
+              onClick={() => setShowSubmitModal(false)}
+              variant="outline"
+              className="flex-1"
+            >
+              Continue Test
+            </Button>
+            <Button
+              onClick={confirmSubmit}
+              className="flex-1"
+            >
+              Submit Test
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </MainLayout>
   );
 }

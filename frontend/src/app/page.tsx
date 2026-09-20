@@ -5,48 +5,40 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import MainLayout from '@/layouts/MainLayout';
 import Button from '@/components/Button';
-import GradientButton from '@/components/GradientButton';
 import SectionHeading from '@/components/SectionHeading';
-import CourseCard from '@/components/CourseCard';
+import TestSeriesCard from '@/components/TestSeriesCard';
 import SampleQuestion from '@/components/SampleQuestion';
-import HeroVisual from '@/components/3DHeroVisual';
-import ParticleBackground from '@/components/ParticleBackground';
-import { courses } from '@/data';
+import CreatorSection from '@/components/CreatorSection';
+import { testSeries, getFreeTestSeries, getPaidTestSeries } from '@/data';
 import { 
   heroTextVariants, 
   fadeUpVariants, 
   staggerContainer, 
-  useScrollReveal,
-  glowPulseVariants 
+  useScrollReveal 
 } from '@/utilities/animations';
 
 export default function Home() {
   const scrollReveal = useScrollReveal();
-
-  const featuredCourses = courses.slice(0, 3);
+  const freeTests = getFreeTestSeries();
+  const paidTests = getPaidTestSeries();
 
   return (
     <MainLayout>
-      <ParticleBackground />
-      
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        {/* Gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-background -z-10" />
-        
-        <div className="max-w-7xl mx-auto relative">
+      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <motion.div
               initial="hidden"
               animate="visible"
-              className="space-y-8"
+              className="space-y-6"
             >
               <motion.p
                 custom={0}
                 variants={heroTextVariants}
                 className="text-primary text-sm font-medium uppercase tracking-wider"
               >
-                Nursing Courses • MCQ Practice
+                Nursing MCQ Test Series
               </motion.p>
               
               <motion.h1
@@ -54,7 +46,7 @@ export default function Home() {
                 variants={heroTextVariants}
                 className="text-4xl md:text-5xl lg:text-6xl font-bold text-dark leading-tight"
               >
-                <span className="gradient-text">Study nursing.</span> Practice with confidence.
+                Practice Smarter. Prepare Better.
               </motion.h1>
               
               <motion.p
@@ -62,7 +54,7 @@ export default function Home() {
                 variants={heroTextVariants}
                 className="text-lg text-muted max-w-xl"
               >
-                Structured nursing courses and practice MCQs designed to help you learn, test yourself and track your progress.
+                Nursing-focused test series designed to help you practice MCQs, test your preparation, and understand where you need to improve.
               </motion.p>
               
               <motion.div
@@ -70,55 +62,12 @@ export default function Home() {
                 variants={heroTextVariants}
                 className="flex flex-col sm:flex-row gap-4"
               >
-                <GradientButton href="/courses" size="lg" glow>
-                  Explore Courses
-                </GradientButton>
-                <Button href="#sample-mcq" variant="outline" size="lg">
-                  Try a Sample MCQ
+                <Button href="/test-series" size="lg">
+                  Explore Test Series
                 </Button>
-              </motion.div>
-              
-              {/* Stats badges */}
-              <motion.div
-                custom={4}
-                variants={heroTextVariants}
-                className="flex items-center space-x-6 pt-4"
-              >
-                <div className="flex items-center space-x-2">
-                  <div className="w-10 h-10 bg-gradient-to-br from-primary/20 to-primary/10 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-dark">6</p>
-                    <p className="text-xs text-muted">Courses</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <div className="w-10 h-10 bg-gradient-to-br from-primary/20 to-primary/10 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-dark">2,500+</p>
-                    <p className="text-xs text-muted">MCQs</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <div className="w-10 h-10 bg-gradient-to-br from-primary/20 to-primary/10 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-dark">30+</p>
-                    <p className="text-xs text-muted">Tests</p>
-                  </div>
-                </div>
+                <Button href="#sample-mcq" variant="outline" size="lg">
+                  Try Free Test
+                </Button>
               </motion.div>
             </motion.div>
             
@@ -128,117 +77,89 @@ export default function Home() {
               transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1.0] }}
               className="relative"
             >
-              <HeroVisual />
+              <div className="bg-surface border border-border rounded-2xl p-8 shadow-lg">
+                <div className="bg-primary/5 rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-sm text-muted font-medium">Question 12 of 50</span>
+                    <span className="text-sm text-muted font-medium">32:18</span>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <p className="text-sm text-muted mb-2">Question 12</p>
+                    <p className="text-sm text-dark font-medium mb-4">
+                      Which of the following is the normal adult respiratory rate?
+                    </p>
+                    
+                    <div className="space-y-2">
+                      {['8–10/min', '12–20/min', '22–30/min', '30–40/min'].map((option, i) => (
+                        <div key={i} className="flex items-center space-x-2 text-sm text-muted p-2 border border-border rounded">
+                          <div className="w-5 h-5 rounded border border-border flex items-center justify-center">
+                            <span className="text-xs">{String.fromCharCode(65 + i)}</span>
+                          </div>
+                          <span>{option}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="w-full bg-border rounded-full h-2">
+                    <div className="bg-primary h-2 rounded-full" style={{ width: '24%' }}></div>
+                  </div>
+                </div>
+              </div>
             </motion.div>
           </div>
         </div>
       </section>
 
-      {/* Trust / Product Intro Section */}
+      {/* Free Test Series Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-surface">
         <div className="max-w-7xl mx-auto">
-          <motion.div
-            {...scrollReveal}
-            variants={fadeUpVariants}
-            className="text-center mb-12"
-          >
-            <h2 className="text-3xl font-bold text-dark mb-4">
-              Everything you need to practice effectively
-            </h2>
-          </motion.div>
-          
-          <motion.div
-            {...scrollReveal}
-            variants={staggerContainer}
-            className="grid grid-cols-1 md:grid-cols-3 gap-8"
-          >
-            {[
-              {
-                icon: (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                ),
-                title: 'Nursing-focused questions',
-                description: 'Practice questions organized around nursing subjects.'
-              },
-              {
-                icon: (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
-                ),
-                title: 'Structured courses',
-                description: 'Learn by subject instead of searching through random questions.'
-              },
-              {
-                icon: (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                ),
-                title: 'Clear results',
-                description: 'See your score and review your performance after each test.'
-              }
-            ].map((feature, index) => (
-              <motion.div
-                key={index}
-                variants={fadeUpVariants}
-                className="flex items-start space-x-4"
-              >
-                <div className="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
-                  {feature.icon}
-                </div>
-                <div>
-                  <h3 className="font-semibold text-dark mb-1">{feature.title}</h3>
-                  <p className="text-sm text-muted">{feature.description}</p>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Featured Courses Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-background via-primary/5 to-background -z-10" />
-        
-        <div className="max-w-7xl mx-auto relative">
           <SectionHeading
-            title="Choose what you want to practice"
-            description="Start with a nursing subject and work through focused MCQs and tests."
+            title="Start with Free Tests"
+            description="Try the first two test series before unlocking the complete practice experience."
             align="center"
           />
           
           <motion.div
             {...scrollReveal}
             variants={staggerContainer}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
           >
-            {featuredCourses.map((course) => (
-              <motion.div key={course.id} variants={fadeUpVariants}>
-                <CourseCard course={course} />
+            {freeTests.map((test) => (
+              <motion.div key={test.id} variants={fadeUpVariants}>
+                <TestSeriesCard testSeries={test} />
               </motion.div>
             ))}
           </motion.div>
+        </div>
+      </section>
+
+      {/* Paid Test Series Section */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <SectionHeading
+            title="More Tests. More Practice."
+            align="center"
+          />
           
           <motion.div
             {...scrollReveal}
-            variants={fadeUpVariants}
-            className="text-center mt-12"
+            variants={staggerContainer}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
           >
-            <Button href="/courses" variant="outline">
-              View All Courses
-            </Button>
+            {paidTests.map((test) => (
+              <motion.div key={test.id} variants={fadeUpVariants}>
+                <TestSeriesCard testSeries={test} />
+              </motion.div>
+            ))}
           </motion.div>
         </div>
       </section>
 
       {/* Interactive Sample MCQ Section */}
-      <section id="sample-mcq" className="py-20 px-4 sm:px-6 lg:px-8 relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-background via-primary/5 to-background -z-10" />
-        
-        <div className="max-w-7xl mx-auto relative">
+      <section id="sample-mcq" className="py-20 px-4 sm:px-6 lg:px-8 bg-surface">
+        <div className="max-w-7xl mx-auto">
           <SectionHeading
             title="See how practice works"
             description="Try a sample question to experience our MCQ interface."
@@ -256,10 +177,8 @@ export default function Home() {
       </section>
 
       {/* How It Works Section */}
-      <section id="how-it-works" className="py-20 px-4 sm:px-6 lg:px-8 relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-background via-primary/5 to-background -z-10" />
-        
-        <div className="max-w-7xl mx-auto relative">
+      <section id="how-it-works" className="py-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
           <SectionHeading
             title="How it works"
             align="center"
@@ -278,29 +197,25 @@ export default function Home() {
                   whileInView={{ width: '100%' }}
                   viewport={{ once: true }}
                   transition={{ duration: 1, ease: [0.25, 0.1, 0.25, 1.0] }}
-                  className="h-full bg-gradient-to-r from-primary via-primary-light to-primary"
+                  className="h-full bg-primary"
                 />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                 {[
-                  { step: '01', title: 'Choose a course', description: 'Select a nursing subject to begin', icon: '📚' },
-                  { step: '02', title: 'Practice MCQs', description: 'Work through focused questions', icon: '✍️' },
-                  { step: '03', title: 'Take tests', description: 'Test your knowledge with timed exams', icon: '⏱️' },
-                  { step: '04', title: 'Review results', description: 'Analyze your performance', icon: '📊' }
+                  { step: '01', title: 'Choose a Test', description: 'Select a nursing test series.' },
+                  { step: '02', title: 'Attempt MCQs', description: 'Answer questions in a timed test environment.' },
+                  { step: '03', title: 'Submit', description: 'Complete and submit your test.' },
+                  { step: '04', title: 'Review Results', description: 'See your score and review your performance.' }
                 ].map((item, index) => (
                   <motion.div
                     key={index}
                     variants={fadeUpVariants}
                     className="relative text-center"
                   >
-                    <motion.div
-                      variants={glowPulseVariants}
-                      animate="animate"
-                      className="w-16 h-16 bg-gradient-to-br from-primary to-primary-light text-white rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold shadow-lg"
-                    >
+                    <div className="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">
                       {item.step}
-                    </motion.div>
+                    </div>
                     <h3 className="font-semibold text-dark mb-2">{item.title}</h3>
                     <p className="text-sm text-muted">{item.description}</p>
                   </motion.div>
@@ -311,24 +226,29 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Creator Section */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-surface">
+        <div className="max-w-4xl mx-auto">
+          <CreatorSection />
+        </div>
+      </section>
+
       {/* Final CTA Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 relative">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-primary/5 to-background -z-10" />
-        
-        <div className="max-w-3xl mx-auto text-center relative">
+      <section className="py-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl mx-auto text-center">
           <motion.div
             {...scrollReveal}
             variants={fadeUpVariants}
           >
             <h2 className="text-3xl md:text-4xl font-bold text-dark mb-4">
-              <span className="gradient-text">Ready to start practicing?</span>
+              Ready to test your preparation?
             </h2>
             <p className="text-lg text-muted mb-8">
-              Choose a course and start working through nursing MCQs.
+              Start with the first two test series for free.
             </p>
-            <GradientButton href="/courses" size="lg" glow>
-              Explore Courses
-            </GradientButton>
+            <Button href="/test-series" size="lg">
+              Start Free Test
+            </Button>
           </motion.div>
         </div>
       </section>
