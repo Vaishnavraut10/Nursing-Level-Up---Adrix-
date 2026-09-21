@@ -39,7 +39,7 @@ export function providerAvailability() {
     groq: Boolean(process.env.GROQ_API_KEY),
     ocrspace: Boolean(process.env.OCRSPACE_API_KEY),
     tesseract: true,
-    r2: Boolean(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET_NAME),
+    s3: Boolean(process.env.AWS_ENDPOINT_URL_S3 && process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY),
     razorpay: Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET),
     razorpayWebhook: Boolean(process.env.RAZORPAY_WEBHOOK_SECRET),
     google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),

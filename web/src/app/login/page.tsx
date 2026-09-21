@@ -14,7 +14,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <div className="flex min-h-dvh">
       {/* Left decorative panel — hidden on mobile */}
-      <div className="relative hidden flex-1 overflow-hidden auth-gradient auth-pattern lg:flex lg:flex-col lg:justify-between">
+      <div className="relative hidden flex-1 overflow-hidden bg-gradient-to-br from-brand-800 to-brand-600 lg:flex lg:flex-col lg:justify-between">
         {/* Floating decorative elements */}
         <div className="pointer-events-none absolute inset-0" aria-hidden="true">
           <div className="absolute right-10 top-20 size-40 rounded-full bg-white/5 blur-2xl animate-float-slow" />

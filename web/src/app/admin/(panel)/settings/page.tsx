@@ -13,7 +13,7 @@ export default async function SettingsPage() {
     ['Google sign-in', availability.google, 'GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET'],
     ['Razorpay payments', availability.razorpay, 'RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET'],
     ['Razorpay webhook', availability.razorpayWebhook, 'RAZORPAY_WEBHOOK_SECRET'],
-    ['Cloudflare R2 storage', availability.r2, `R2_* (currently using ${storageBackend() === 'r2' ? 'R2' : 'local disk — development only'})`],
+    ['S3-Compatible Object Storage', availability.s3, `AWS_* (currently using ${storageBackend() === 's3' ? 'S3' : 'local disk — development only'})`],
     ['Gemini', availability.gemini, 'GEMINI_API_KEY'],
     ['Groq', availability.groq, 'GROQ_API_KEY'],
     ['OCR.space', availability.ocrspace, 'OCRSPACE_API_KEY (optional)'],
