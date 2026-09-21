@@ -1,13 +1,13 @@
 // Helper to get auth token from localStorage
 export function getAccessToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('nursing_level_up_token');
+  return localStorage.getItem('nursing_level_up_student_token');
 }
 
 // Helper to add auth token to API requests
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const token = getAccessToken();
-  
+
   const headers = {
     'Content-Type': 'application/json',
     ...(token && { 'X-Auth-Token': token }),
@@ -23,7 +23,7 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   if (response.status === 401) {
     if (typeof window !== 'undefined') {
       const currentPath = window.location.pathname;
-      window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
+      window.location.href = `/login/student?redirect=${encodeURIComponent(currentPath)}`;
     }
     throw new Error('Authentication required');
   }

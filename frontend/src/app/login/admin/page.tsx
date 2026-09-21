@@ -36,7 +36,7 @@ export default function AdminLoginPage() {
         throw new Error('Access denied. Admin role required.');
       }
 
-      // Store admin auth
+      // Store admin auth with separate keys
       localStorage.setItem('adminAuth', 'true');
       localStorage.setItem('adminToken', data.authToken);
       localStorage.setItem('adminUser', JSON.stringify(data.user));
@@ -103,6 +103,16 @@ export default function AdminLoginPage() {
             <p className="text-xs text-muted">
               Development mode: Use admin@nursinglevelup.com
             </p>
+          </div>
+
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={() => router.push('/login')}
+              className="text-sm text-primary hover:underline"
+            >
+              Back to role selection
+            </button>
           </div>
         </div>
       </motion.div>

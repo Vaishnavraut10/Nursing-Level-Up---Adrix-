@@ -17,8 +17,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   useEffect(() => {
     // Check admin authentication
     const adminToken = localStorage.getItem('adminToken');
-    if (!adminToken && pathname !== '/admin/login') {
-      router.push('/admin/login');
+    if (!adminToken && pathname !== '/login/admin') {
+      router.push('/login/admin');
     } else {
       setIsAuthenticated(true);
     }
@@ -28,7 +28,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     localStorage.removeItem('adminAuth');
     localStorage.removeItem('adminToken');
     localStorage.removeItem('adminUser');
-    router.push('/admin/login');
+    router.push('/login/admin');
   };
 
   const navItems = [
@@ -39,7 +39,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { name: 'Attempts', href: '/admin/attempts', icon: '📈' },
   ];
 
-  if (!isAuthenticated && pathname !== '/admin/login') {
+  if (!isAuthenticated && pathname !== '/login/admin') {
     return null;
   }
 

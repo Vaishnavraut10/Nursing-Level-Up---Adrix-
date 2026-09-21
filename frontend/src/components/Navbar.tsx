@@ -60,8 +60,8 @@ export default function Navbar() {
             )}
             
             {!isAuthenticated ? (
-              <Link 
-                href="/login" 
+              <Link
+                href="/login/student"
                 className="bg-primary text-white px-5 py-2 rounded-md text-sm font-medium hover:bg-primary-dark transition-colors"
               >
                 Login

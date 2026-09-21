@@ -16,8 +16,8 @@ interface AuthState {
   isLoading: boolean;
 }
 
-const AUTH_STORAGE_KEY = 'nursing_level_up_auth';
-const AUTH_TOKEN_KEY = 'nursing_level_up_token';
+const STUDENT_AUTH_STORAGE_KEY = 'nursing_level_up_student_auth';
+const STUDENT_TOKEN_KEY = 'nursing_level_up_student_token';
 
 export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>({
@@ -28,9 +28,9 @@ export function useAuth() {
 
   useEffect(() => {
     // Check localStorage on mount
-    const storedAuth = localStorage.getItem(AUTH_STORAGE_KEY);
-    const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
-    
+    const storedAuth = localStorage.getItem(STUDENT_AUTH_STORAGE_KEY);
+    const storedToken = localStorage.getItem(STUDENT_TOKEN_KEY);
+
     if (storedAuth && storedToken) {
       try {
         const parsed = JSON.parse(storedAuth);
@@ -58,7 +58,7 @@ export function useAuth() {
 
   const login = async (email: string): Promise<{ user: User; needsPhone: boolean }> => {
     setAuthState(prev => ({ ...prev, isLoading: true }));
-    
+
     try {
       const response = await fetch('http://localhost:5000/api/auth/login', {
         method: 'POST',
@@ -72,11 +72,11 @@ export function useAuth() {
       }
 
       const data = await response.json();
-      
-      // Store in localStorage
-      localStorage.setItem(AUTH_TOKEN_KEY, data.authToken);
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data.user));
-      
+
+      // Store in student-specific localStorage keys
+      localStorage.setItem(STUDENT_TOKEN_KEY, data.authToken);
+      localStorage.setItem(STUDENT_AUTH_STORAGE_KEY, JSON.stringify(data.user));
+
       setAuthState({
         isAuthenticated: true,
         user: data.user,
@@ -95,7 +95,7 @@ export function useAuth() {
 
   const completeProfile = async (phone: string): Promise<User> => {
     setAuthState(prev => ({ ...prev, isLoading: true }));
-    
+
     try {
       const response = await fetch('http://localhost:5000/api/auth/complete-profile', {
         method: 'POST',
@@ -109,10 +109,10 @@ export function useAuth() {
       }
 
       const data = await response.json();
-      
+
       // Update localStorage
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data.user));
-      
+      localStorage.setItem(STUDENT_AUTH_STORAGE_KEY, JSON.stringify(data.user));
+
       setAuthState({
         isAuthenticated: true,
         user: data.user,
@@ -132,9 +132,9 @@ export function useAuth() {
       user: null,
       isLoading: false
     };
-    
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    localStorage.removeItem(AUTH_TOKEN_KEY);
+
+    localStorage.removeItem(STUDENT_AUTH_STORAGE_KEY);
+    localStorage.removeItem(STUDENT_TOKEN_KEY);
     setAuthState(newAuthState);
   };
 

@@ -1,5 +1,5 @@
 const { Pool } = require('pg');
-require('dotenv').config();
+require('dotenv').config({ override: true });
 
 // Create a PostgreSQL connection pool
 const pool = new Pool({
