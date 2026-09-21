@@ -1,0 +1,219 @@
+@import 'tailwindcss';
+
+/* Nursing Level Up — calm, academic palette (PRD §31). Deep teal ink on warm paper. */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-serif: var(--font-source-serif), ui-serif, Georgia, 'Times New Roman', serif;
+
+  --color-paper: #faf8f4;
+  --color-surface: #ffffff;
+  --color-sunken: #f3f0ea;
+  --color-line: #e5e0d6;
+  --color-line-strong: #d3cdc0;
+
+  --color-ink: #16232b;
+  --color-ink-2: #3c4a52;
+  --color-muted: #66737a;
+  --color-faint: #8d979c;
+
+  --color-brand-50: #eef6f5;
+  --color-brand-100: #d5ebe8;
+  --color-brand-200: #a9d4ce;
+  --color-brand-500: #1f7a73;
+  --color-brand-600: #17655f;
+  --color-brand-700: #11504b;
+  --color-brand-800: #0c3d39;
+
+  --color-accent: #b4532a;
+  --color-accent-50: #fbf0ea;
+
+  --color-ok: #2f7d4a;
+  --color-ok-50: #ecf6ef;
+  --color-warn: #9a6a00;
+  --color-warn-50: #fdf5e1;
+  --color-bad: #b3261e;
+  --color-bad-50: #fcecea;
+
+  --radius-card: 0.75rem;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+  }
+  h1, h2, h3 {
+    @apply font-serif tracking-tight text-ink;
+  }
+  ::selection {
+    @apply bg-brand-100 text-brand-800;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------------------------------------------------------------- Animations */
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+.animate-fade-up {
+  animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 0.6s ease-out both;
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: none; }
+}
+.animate-slide-up {
+  animation: slide-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-scale-in {
+  animation: scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(2deg); }
+}
+.animate-float-slow {
+  animation: float-slow 6s ease-in-out infinite;
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+.animate-pulse-soft {
+  animation: pulse-soft 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.animate-shimmer {
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 6s ease infinite;
+}
+
+/* Stagger children animations */
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }
+.stagger-6 { animation-delay: 0.6s; }
+
+/* ---------------------------------------------------------------- Glassmorphism */
+
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(229, 224, 214, 0.5);
+}
+.glass-dark {
+  background: rgba(12, 61, 57, 0.85);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(169, 212, 206, 0.15);
+}
+
+/* ---------------------------------------------------------------- Gradient text */
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--color-brand-700) 0%, var(--color-brand-500) 50%, var(--color-accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.text-gradient-subtle {
+  background: linear-gradient(135deg, var(--color-ink) 0%, var(--color-brand-700) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ---------------------------------------------------------------- Decorative */
+
+.hero-gradient {
+  background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(31, 122, 115, 0.08), transparent),
+              radial-gradient(ellipse 60% 50% at 80% 50%, rgba(180, 83, 42, 0.04), transparent),
+              radial-gradient(ellipse 50% 40% at 20% 80%, rgba(31, 122, 115, 0.05), transparent);
+}
+
+.dot-pattern {
+  background-image: radial-gradient(circle, var(--color-line) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.card-hover {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.3s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06),
+              0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* ---------------------------------------------------------------- Auth page */
+
+.auth-gradient {
+  background: linear-gradient(160deg, #0c3d39 0%, #11504b 35%, #17655f 65%, #1f7a73 100%);
+}
+.auth-pattern {
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(169, 212, 206, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(180, 83, 42, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.03) 0%, transparent 60%);
+}
