@@ -1,142 +1,238 @@
-# NurseLearn - Nursing Education Platform
+# Nursing Level Up — Nursing Exam Preparation Platform
 
-A comprehensive web platform for nursing students providing courses, MCQ practice tests, and progress tracking.
+A comprehensive, full-stack web platform built for nursing officer aspirants preparing for NORCET, GMCH, AIIMS, and state-level exams. The platform features a unified course pass model, daily drip-scheduled test series, interactive timed exam solving, clinical rationales, and an admin management panel.
 
-## Project Overview
+---
 
-NurseLearn is a modern web application designed to help nursing students:
-- Browse and purchase nursing courses
-- Practice with interactive MCQ tests
-- Track learning progress and test results
-- Access a professional nursing education experience
+## 🌟 Key Highlights & Architecture
 
-The platform includes both a student-facing interface and an admin panel for content management. It is built as a unified full-stack application using Next.js.
+- **Unified Course Model**: Students purchase the complete **Nursing Level Up Course** for ₹299 (or ₹199 using instant promo code `NLUP199`), granting access to all 200+ test series. Individual test series purchases are discontinued in favor of this single all-inclusive pass.
+- **Daily Drip Release Engine**:
+  - Test Series 1 unlocks **immediately** upon course enrollment (`release_after_days = 0`).
+  - Test Series 2 unlocks on **Day 2 at 5:00 PM IST** (`release_after_days = 1`), Series 3 on **Day 3 at 5:00 PM IST**, and so on.
+  - Release dates are dynamically calculated per-student based on `access_started_at`.
+- **Direct Test Solving from Course Page (`/course`)**:
+  - The main course page displays course details, pricing, coupon applicator, and all listed test series below it.
+  - Students can click **"Solve Test →"** to launch directly into the timed exam runner (`/tests/[id]`).
+- **Dual Authentication**:
+  - **Google OAuth**: Fast single-click sign-in.
+  - **Email & Password**: Built-in account registration and credential authentication secured with bcryptjs password hashing.
+  - **Dev Login**: Optional single-click bypass for rapid local testing.
+- **Interactive Timed Exam Interface (`/tests/:id`)**:
+  - Full-screen distraction-free test runner with real-time server-synced countdown timer.
+  - Question palette, mark for review, question jump, autosave (session & server), and auto-submit on time expiry.
+  - Instant score calculation, percentile estimation, and clinical rationale breakdown for each option.
+- **Comprehensive Admin Panel (`/admin`)**:
+  - **Course Management (`/admin/courses`)**: Create and edit courses, set prices, discount prices, promo codes, publish/unpublish/archive, and view student enrollment & revenue analytics.
+  - **Test Series Management (`/admin/test-series`)**: Create and edit tests, assign to courses, set `release_after_days` drip schedules, manage duration and question counts.
+  - **Question Bank**: Bulk import (JSON/CSV), rich text question creation, options, and clinical rationales.
+  - **Purchases & Attempts**: Track payment orders, Razorpay verifications, student attempt logs, and audit trails.
 
-## Technology Stack
+---
 
-- **Framework**: Next.js (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS (with custom design system & glassmorphism)
-- **Database**: PostgreSQL (hosted on Neon)
-- **Authentication**: NextAuth (Google OAuth & Dev Login)
-- **Payments**: Razorpay
+## 🛠️ Technology Stack
 
-## Project Structure
+- **Framework**: [Next.js 16](https://nextjs.org/) (App Router, Server Components & Server Actions)
+- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **UI & Styling**: [Tailwind CSS v4](https://tailwindcss.com/) with custom design tokens, glassmorphism, and responsive layouts
+- **Database**: PostgreSQL (hosted on [Neon](https://neon.tech/) or local PostgreSQL) using connection pooling (`pg`)
+- **Authentication**: [NextAuth.js v5 (Auth.js)](https://authjs.dev/) with Google OAuth & Credentials Provider (`bcryptjs`)
+- **Payments**: [Razorpay](https://razorpay.com/) (UPI, Netbanking, Cards, Wallets)
+- **Testing**: [Vitest](https://vitest.dev/) for unit & integration testing, [Playwright](https://playwright.dev/) for E2E testing
+- **Validation**: [Zod](https://zod.dev/) for robust schema validation across API routes and forms
 
-The entire application is self-contained within the `web/` directory.
+---
+
+## 📁 Project Structure
+
+The entire application is located in the `web/` directory:
 
 ```
 web/
 ├── src/
-│   ├── app/                 # Next.js App Router
-│   │   ├── (site)/          # Student-facing pages (Dashboard, Test Series, Profile)
-│   │   ├── admin/           # Admin panel pages
-│   │   ├── login/           # Authentication pages
-│   │   ├── api/             # API routes and webhooks
-│   │   ├── layout.tsx       # Root layout
-│   │   └── globals.css      # Global styles & Tailwind config
-│   ├── components/          # Reusable React components (UI, Auth, Navigation, Tests)
-│   ├── lib/                 # Core utilities
-│   │   ├── server/          # Server-only utilities (DB, Services, Auth logic)
-│   │   └── validation/      # Zod schemas
-│   └── types/               # TypeScript type definitions
-├── public/                  # Static assets
-├── db/                      # Database schema and migrations
-├── .env.example             # Example environment variables
-├── package.json             # Project dependencies
-└── next.config.ts           # Next.js configuration
+│   ├── app/
+│   │   ├── (focus)/                 # Distraction-free test solving
+│   │   │   └── tests/[id]/          # Interactive timed test runner
+│   │   ├── (site)/                  # Public student-facing pages
+│   │   │   ├── page.tsx             # Main homepage with Course Showcase
+│   │   │   ├── course/              # Course details & listed test series
+│   │   │   ├── test-series/         # Test series catalog & detail views
+│   │   │   ├── unlock/[id]/         # Course enrollment gateway for locked tests
+│   │   │   ├── dashboard/           # Student progress & test history
+│   │   │   ├── results/[id]/        # Detailed exam results & explanations
+│   │   │   ├── profile/             # Profile & account settings
+│   │   │   └── complete-profile/    # Mobile number collection
+│   │   ├── admin/
+│   │   │   ├── (panel)/             # Admin dashboard pages
+│   │   │   │   ├── courses/         # Course CRUD & drip schedule manager
+│   │   │   │   ├── test-series/     # Test series management
+│   │   │   │   ├── purchases/       # Payment & revenue reports
+│   │   │   │   ├── attempts/        # Student exam logs
+│   │   │   │   └── users/           # User management
+│   │   │   └── login/               # Admin portal login
+│   │   ├── api/                     # Backend API endpoints
+│   │   │   ├── admin/courses/       # Admin course operations
+│   │   │   ├── auth/register/       # Email/password registration
+│   │   │   ├── courses/             # Course lookup & promo validation
+│   │   │   ├── payments/razorpay/   # Order creation & signature verification
+│   │   │   └── tests/               # Test start, autosave, and submission
+│   │   ├── login/                   # Dual student login & signup
+│   │   └── layout.tsx               # Root layout
+│   ├── components/
+│   │   ├── admin/                   # Admin CourseForm, TestSeriesForm, Sidebar
+│   │   ├── auth/                    # LoginPanel with Google + Password forms
+│   │   ├── course/                  # CourseTestSeriesList with direct solve
+│   │   ├── navigation/              # Header, Logo, UserMenu
+│   │   ├── payments/                # Dynamic Razorpay Checkout with coupon
+│   │   ├── test/                    # TestRunner exam engine
+│   │   ├── test-series/             # Test cards and catalog grids
+│   │   └── ui/                      # Buttons, Cards, Inputs, Modals
+│   ├── lib/
+│   │   ├── server/                  # Server-only services
+│   │   │   ├── db.ts                # PostgreSQL pool queries & transactions
+│   │   │   ├── auth.ts              # NextAuth configuration
+│   │   │   ├── session.ts           # Route guards & user sessions
+│   │   │   └── services/            # courseService, testSeriesService, etc.
+│   │   ├── api.ts                   # Client-side API fetch client
+│   │   └── validation.ts            # Zod validation schemas
+│   └── types/                       # TypeScript interfaces
+├── db/                              # SQL schema and migration scripts
+│   ├── schema.sql                   # Full database schema
+│   ├── add-courses.sql              # Courses table & drip columns migration
+│   └── add-password-auth.sql        # Password authentication migration
+├── scripts/                         # Migration and utility scripts
+│   ├── migrate-courses.mjs          # Executes course migration & seeds default course
+│   └── migrate-password.mjs         # Executes password auth migration
+├── package.json
+└── next.config.ts
 ```
 
-## Local Development Setup
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 18+ 
-- npm or yarn
-- PostgreSQL database (Neon account recommended)
 
-### Installation
+- **Node.js**: v18.18 or higher (v20+ recommended)
+- **PostgreSQL**: Local instance or cloud database (e.g. Neon, Supabase)
+- **npm** or **pnpm** / **yarn**
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/animesh-1121/adrix-courese-web.git
-   cd adrix-courese-web
-   ```
+### 1. Installation
 
-2. **Navigate to the web directory and install dependencies**
-   ```bash
-   cd web
-   npm install
-   ```
+Clone the repository and install dependencies:
 
-3. **Set up environment variables**
-   ```bash
-   cp .env.example .env.local
-   ```
-   Edit `.env.local` to add your actual database connection string and other required keys.
+```bash
+git clone https://github.com/animesh-1121/adrix-courese-web.git
+cd adrix-courese-web/web
+npm install
+```
 
-### Environment Variables (.env.local)
+### 2. Environment Variables Configuration
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `DATABASE_URL` | PostgreSQL connection string | Yes |
-| `ENABLE_DEV_LOGIN` | Enable bypass login for local testing (`true`) | No |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID | No (Required for prod auth) |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | No (Required for prod auth) |
-| `RAZORPAY_KEY_ID` | Razorpay API key ID | No (Required for payments) |
-| `RAZORPAY_KEY_SECRET` | Razorpay API key secret | No (Required for payments) |
-| `GEMINI_API_KEY` | Key for AI-assisted MCQ generation | No |
+Create a `.env.local` file inside the `web/` directory:
 
-### Running the Application
+```bash
+cp .env.example .env.local
+```
 
-To start the development server:
+Configure your environment variables:
+
+| Variable | Description | Required | Example |
+|----------|-------------|----------|---------|
+| `DATABASE_URL` | PostgreSQL connection string | **Yes** | `postgresql://user:pass@host/db?sslmode=require` |
+| `AUTH_SECRET` | NextAuth encryption secret | **Yes** | Run `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | Application canonical URL | **Yes** | `http://localhost:3000` |
+| `GOOGLE_CLIENT_ID` | Google OAuth Client ID | Optional (for Google Auth) | `...apps.googleusercontent.com` |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth Client Secret | Optional (for Google Auth) | `GOCSPX-...` |
+| `RAZORPAY_KEY_ID` | Razorpay API Key ID | Optional (for Payments) | `rzp_test_...` |
+| `RAZORPAY_KEY_SECRET` | Razorpay API Key Secret | Optional (for Payments) | `...` |
+| `ENABLE_DEV_LOGIN` | Bypass login buttons in dev mode | Development only | `true` |
+
+### 3. Database Migration
+
+Run the migration scripts to initialize the database schema, add course tables, and enable password auth:
+
+```bash
+# Apply schema and initial seed
+npm run db:migrate
+
+# Apply course and drip release migration
+node scripts/migrate-courses.mjs
+
+# Apply password authentication migration
+node scripts/migrate-password.mjs
+```
+
+### 4. Running the Development Server
+
+Start the Next.js development server:
+
 ```bash
 npm run dev
 ```
 
-The application will be available at:
-- **Student App**: http://localhost:3000
-- **Admin Panel**: http://localhost:3000/admin
+The application will be live at:
+- **Main Website**: [http://localhost:3000](http://localhost:3000)
+- **Course Page**: [http://localhost:3000/course](http://localhost:3000/course)
+- **Admin Panel**: [http://localhost:3000/admin](http://localhost:3000/admin)
 
-### Production Build
+---
 
-To build and run the application in production mode:
+## 🧭 Application Routes
+
+### Student & Public Routes
+
+| Route | Description |
+|---|---|
+| `/` | Landing page featuring the **Course Showcase** and included test series |
+| `/course` | **Complete Course Page** with syllabus, details, ₹299 / ₹199 coupon applicator, and listed test series with direct **Solve Test** action |
+| `/test-series` | Public test catalog with search, subject filtering, and access badges |
+| `/test-series/:id` | Test series syllabus, instructions, and start options |
+| `/unlock/:id` | Enrollment portal for locked course test series with instant promo code applicator |
+| `/tests/:id` | Distraction-free exam runner with countdown timer, question palette, and autosave |
+| `/results/:id` | Detailed test score report, percentiles, and clinical rationales |
+| `/dashboard` | Student dashboard showing unlocked tests, progress, and performance analytics |
+| `/login` | Dual authentication portal (Google OAuth + Email/Password sign-up and sign-in) |
+| `/complete-profile`| Student onboarding step for mobile number collection |
+
+### Admin Panel Routes
+
+| Route | Description |
+|---|---|
+| `/admin` | Main analytics dashboard (students, tests, revenue, recent attempts) |
+| `/admin/courses` | **Course Management**: List courses, pricing, promo codes, student counts, and revenue |
+| `/admin/courses/create` | Create new course with title, description, price, discount price, and promo code |
+| `/admin/courses/:id` | Course details, quick publish/unpublish/archive actions, and assigned drip schedule |
+| `/admin/courses/:id/edit` | Edit course information and pricing |
+| `/admin/test-series` | List test series with course assignment and release day indicators |
+| `/admin/test-series/create` | Create new test series and set `release_after_days` drip delay |
+| `/admin/test-series/:id` | View test series questions, bulk import, review status, and publishing |
+| `/admin/purchases` | Track all course enrollments and payment transaction IDs |
+| `/admin/attempts` | Inspect all student exam attempts and completion percentages |
+| `/admin/users` | Manage registered students and admin roles |
+
+---
+
+## 🧪 Testing & Verification
+
+Run the test suite to verify validation rules, scoring logic, and parsers:
+
 ```bash
+# Run Vitest unit tests
+npm run test
+
+# Typecheck TypeScript code
+npm run typecheck
+
+# Run linter
+npm run lint
+
+# Build production bundle
 npm run build
-npm start
 ```
 
-## Available Routes
+---
 
-### Student Routes
-- `/` - Homepage (Landing Page)
-- `/login` - Authentication page
-- `/test-series` - Browse all test series
-- `/test-series/:id` - Test series details
-- `/dashboard` - Student dashboard & progress tracking
-- `/tests/:id` - Interactive timed MCQ test interface
-- `/results/:id` - Detailed test results & explanations
-- `/profile` - Student profile management
-- `/complete-profile` - Collect missing user details (phone number)
+## 📄 License
 
-### Admin Routes
-- `/admin` - Admin dashboard
-- `/admin/login` - Admin login portal
-- `/admin/users` - User management
-- `/admin/test-series` - Test series management
-- `/admin/purchases` - Track orders and payments
-- `/admin/attempts` - View all test attempts
-- `/admin/settings` - Configure app settings
-
-## Design System
-
-The platform uses a professional nursing education design, featuring:
-- **Colors**: Deep teal ink on warm paper backgrounds (`bg-paper`, `text-ink`)
-- **Typography**: Inter (Sans-serif) and Source Serif 4
-- **Aesthetics**: Glassmorphism, subtle gradient text, animated cards
-- **Components**: Reusable Tailwind-based components (`src/components/ui`)
-
-## Testing
-The repository includes configurations for testing APIs and UI. Use the corresponding Vitest configurations located in `web/vitest.config.mts` and `web/vitest.api.config.mts`.
-
-## License
-Proprietary - All rights reserved
+Proprietary — All rights reserved © Nursing Level Up.
