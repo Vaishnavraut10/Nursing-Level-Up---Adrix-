@@ -14,8 +14,15 @@ function createPool() {
   return new pg.Pool({
     connectionString,
     max: Number(process.env.DB_POOL_MAX ?? 10),
-    idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 10_000,
+    // Neon closes idle connections aggressively; keep them alive with TCP pings.
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10_000,
+    // Release idle connections quickly so the pool doesn't hold dead sockets.
+    idleTimeoutMillis: 10_000,
+    // Give enough time to establish a connection (Neon cold-starts can be slow).
+    connectionTimeoutMillis: 15_000,
+    // Allow the Node.js process to exit cleanly in dev (hot-reloads).
+    allowExitOnIdle: true,
   });
 }
 
