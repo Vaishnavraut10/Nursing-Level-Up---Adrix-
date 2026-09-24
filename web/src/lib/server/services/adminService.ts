@@ -32,8 +32,11 @@ export async function dashboard() {
       `SELECT id, name, email, created_at FROM users WHERE role = 'STUDENT' ORDER BY created_at DESC LIMIT 5`,
     ),
     query<Purchase>(
-      `SELECT p.id, p.amount, p.currency, p.status, p.created_at, u.name AS user_name, ts.title AS test_title
-         FROM purchases p JOIN users u ON u.id = p.user_id JOIN test_series ts ON ts.id = p.test_series_id
+      `SELECT p.id, p.amount, p.currency, p.status, p.created_at, u.name AS user_name, COALESCE(c.title, ts.title) AS test_title
+         FROM purchases p
+         JOIN users u ON u.id = p.user_id
+         LEFT JOIN test_series ts ON ts.id = p.test_series_id
+         LEFT JOIN courses c ON c.id = p.course_id
         ORDER BY p.created_at DESC LIMIT 5`,
     ),
     query<Attempt>(
@@ -136,15 +139,21 @@ export async function listPurchases(opts: {
     where.push(`p.test_series_id = $${params.length}`);
   }
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-  const from = `FROM purchases p JOIN users u ON u.id = p.user_id JOIN test_series ts ON ts.id = p.test_series_id ${whereSql}`;
+  const from = `FROM purchases p
+    JOIN users u ON u.id = p.user_id
+    LEFT JOIN test_series ts ON ts.id = p.test_series_id
+    LEFT JOIN courses c ON c.id = p.course_id
+    ${whereSql}`;
   const summary = await queryOne<{ total: number; revenue: number }>(
     `SELECT COUNT(*)::int AS total, COALESCE(SUM(p.amount) FILTER (WHERE p.status = 'SUCCESS'), 0)::float AS revenue ${from}`,
     params,
   );
   params.push(opts.pageSize, (opts.page - 1) * opts.pageSize);
   const items = await query<Purchase>(
-    `SELECT p.id, p.user_id, p.test_series_id, p.amount, p.currency, p.provider, p.order_id, p.payment_id, p.status,
-            p.created_at, p.updated_at, u.name AS user_name, u.email AS user_email, ts.title AS test_title
+    `SELECT p.id, p.user_id, p.test_series_id, p.course_id, p.amount, p.currency, p.provider, p.order_id, p.payment_id,
+            p.promo_code_used, p.status, p.created_at, p.updated_at,
+            u.name AS user_name, u.email AS user_email,
+            COALESCE(c.title, ts.title) AS test_title, c.title AS course_title
        ${from}
       ORDER BY p.created_at DESC
       LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -158,8 +167,12 @@ export async function listPurchases(opts: {
 
 export async function purchaseDetail(id: string) {
   const purchase = await queryOne<Purchase & { failure_reason: string | null; user_phone: string | null }>(
-    `SELECT p.*, u.name AS user_name, u.email AS user_email, u.phone AS user_phone, ts.title AS test_title
-       FROM purchases p JOIN users u ON u.id = p.user_id JOIN test_series ts ON ts.id = p.test_series_id
+    `SELECT p.*, u.name AS user_name, u.email AS user_email, u.phone AS user_phone,
+            COALESCE(c.title, ts.title) AS test_title, c.title AS course_title
+       FROM purchases p
+       JOIN users u ON u.id = p.user_id
+       LEFT JOIN test_series ts ON ts.id = p.test_series_id
+       LEFT JOIN courses c ON c.id = p.course_id
       WHERE p.id = $1`,
     [id],
   );

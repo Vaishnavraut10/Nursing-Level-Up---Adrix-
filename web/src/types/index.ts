@@ -1,6 +1,7 @@
 export type Role = 'STUDENT' | 'ADMIN';
 export type UserStatus = 'ACTIVE' | 'SUSPENDED';
 export type TestStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+export type CourseStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
 export type AnswerOption = 'A' | 'B' | 'C' | 'D';
 export type PurchaseStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED' | 'REFUNDED';
 export type AttemptStatus = 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED';
@@ -10,10 +11,12 @@ export type DocumentStatus =
   | 'UPLOADED' | 'EXTRACTING' | 'EXTRACTED' | 'EXTRACT_FAILED'
   | 'GENERATING' | 'GENERATED' | 'GENERATE_FAILED' | 'APPROVED';
 export type AccessState = 'FREE' | 'LOGIN_REQUIRED' | 'PURCHASE_REQUIRED' | 'PURCHASED';
+export type SeriesReleaseState = 'AVAILABLE' | 'LOCKED' | 'UPCOMING';
 
 export interface User {
   id: string;
   google_id: string | null;
+  password_hash: string | null;
   name: string;
   email: string;
   phone: string | null;
@@ -22,6 +25,20 @@ export interface User {
   created_at: string;
   updated_at: string;
   last_login_at: string | null;
+}
+
+export interface Course {
+  id: string;
+  title: string;
+  description: string | null;
+  price: number;
+  discount_price: number | null;
+  promo_code: string | null;
+  currency: string;
+  status: CourseStatus;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface TestSeries {
@@ -34,6 +51,8 @@ export interface TestSeries {
   duration_minutes: number;
   status: TestStatus;
   instructions: string | null;
+  course_id: string | null;
+  release_after_days: number;
   created_at: string;
   updated_at: string;
   published_at: string | null;
@@ -54,6 +73,13 @@ export interface PublicTestSeries {
   question_count: number;
   access: AccessState;
   has_access: boolean;
+  course_id?: string | null;
+  /** Drip-release: days after course purchase this series becomes available */
+  release_after_days: number;
+  /** Drip-release: whether this series is currently available to the viewer */
+  release_state: SeriesReleaseState;
+  /** Drip-release: when this series unlocks (null if already available or not purchased) */
+  releases_at: string | null;
 }
 
 export interface Question {
@@ -88,16 +114,19 @@ export interface StudentQuestion {
 export interface Purchase {
   id: string;
   user_id: string;
-  test_series_id: string;
+  test_series_id: string | null;
+  course_id: string | null;
   amount: number;
   currency: string;
   provider: 'RAZORPAY' | 'STRIPE';
   order_id: string;
   payment_id: string | null;
+  promo_code_used: string | null;
   status: PurchaseStatus;
   created_at: string;
   updated_at: string;
   test_title?: string;
+  course_title?: string;
   user_name?: string;
   user_email?: string;
 }

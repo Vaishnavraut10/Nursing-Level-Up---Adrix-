@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ButtonLink, Card, Container, StatusBadge } from '@/components/ui';
+import { Button, ButtonLink, Card, Container, StatusBadge } from '@/components/ui';
 import { AccessBadge } from '@/components/test-series/TestSeriesCard';
 import { getCurrentUser } from '@/lib/server/session';
 import { getPublished } from '@/lib/server/services/testSeriesService';
@@ -24,16 +24,51 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: data?.series.title ?? 'Test series' };
 }
 
-/** CTA table from Frontend doc §7 — every input is server-derived. */
 function cta(series: PublicTestSeries, user: User | null) {
-  const price = formatPrice(series.price, series.is_free, series.currency);
-  if (!user) {
-    return series.is_free
-      ? { label: 'Login to Start', href: `/login?next=${encodeURIComponent(`/tests/${series.id}`)}` }
-      : { label: 'Login to Unlock', href: `/login?next=${encodeURIComponent(`/unlock/${series.id}`)}` };
+  if (series.is_free) {
+    if (!user) {
+      return {
+        label: 'Login to Start',
+        href: `/login?next=${encodeURIComponent(`/tests/${series.id}`)}`,
+        disabled: false,
+      };
+    }
+    return { label: 'Start Test', href: `/tests/${series.id}`, disabled: false };
   }
-  if (series.has_access) return { label: 'Start Test', href: `/tests/${series.id}` };
-  return { label: `Unlock for ${price}`, href: `/unlock/${series.id}` };
+
+  // Course-based series
+  if (!user) {
+    return {
+      label: 'Login to Enroll',
+      href: `/login?next=${encodeURIComponent(`/unlock/${series.id}`)}`,
+      disabled: false,
+    };
+  }
+
+  if (series.has_access) {
+    return { label: 'Start Test', href: `/tests/${series.id}`, disabled: false };
+  }
+
+  if (series.access === 'PURCHASED' && series.release_state === 'UPCOMING') {
+    const formattedDate = series.releases_at
+      ? new Date(series.releases_at).toLocaleDateString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          month: 'short',
+          day: 'numeric',
+        }) + ' at 5:00 PM IST'
+      : '5:00 PM IST';
+    return {
+      label: `Unlocks ${formattedDate}`,
+      href: '#',
+      disabled: true,
+    };
+  }
+
+  return {
+    label: 'Enroll in Course (₹299)',
+    href: `/unlock/${series.id}`,
+    disabled: false,
+  };
 }
 
 export default async function TestSeriesDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -64,17 +99,57 @@ export default async function TestSeriesDetailPage({ params }: { params: Promise
           {series.description && <p className="mt-4 text-lg leading-relaxed text-ink-2">{series.description}</p>}
 
           <dl className="mt-8 grid grid-cols-3 gap-4 rounded-card border border-line bg-surface p-5">
-            <div><dt className="text-xs text-muted">Questions</dt><dd className="mt-1 font-serif text-2xl">{series.question_count}</dd></div>
-            <div><dt className="text-xs text-muted">Duration</dt><dd className="mt-1 font-serif text-2xl">{series.duration_minutes} min</dd></div>
-            <div><dt className="text-xs text-muted">Price</dt><dd className="mt-1 font-serif text-2xl">{formatPrice(series.price, series.is_free, series.currency)}</dd></div>
+            <div>
+              <dt className="text-xs text-muted">Questions</dt>
+              <dd className="mt-1 font-serif text-2xl">{series.question_count}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted">Duration</dt>
+              <dd className="mt-1 font-serif text-2xl">{series.duration_minutes} min</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted">Access</dt>
+              <dd className="mt-1 font-serif text-xl">
+                {series.is_free ? 'Free' : 'Course Pass'}
+              </dd>
+            </div>
           </dl>
+
+          {/* Drip release notice for upcoming tests */}
+          {series.access === 'PURCHASED' && series.release_state === 'UPCOMING' && (
+            <div className="mt-6 rounded-xl border border-amber-200/80 bg-amber-50/60 p-4">
+              <div className="flex items-center gap-2 font-semibold text-amber-800 text-sm">
+                <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                Scheduled Daily Release
+              </div>
+              <p className="mt-1 text-xs text-amber-900/80 leading-relaxed">
+                You own the complete course! This test will unlock on{' '}
+                <strong>
+                  {series.releases_at
+                    ? new Date(series.releases_at).toLocaleString('en-IN', {
+                        timeZone: 'Asia/Kolkata',
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      })
+                    : 'the scheduled date'}
+                </strong>{' '}
+                at 5:00 PM IST as part of your step-by-step preparation plan.
+              </p>
+            </div>
+          )}
 
           {series.instructions && (
             <section className="mt-8">
               <h2 className="text-xl font-semibold">Instructions</h2>
               <ul className="mt-3 space-y-2 text-ink-2">
                 {series.instructions.split('\n').filter(Boolean).map((line, i) => (
-                  <li key={i} className="flex gap-3"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-brand-500" />{line}</li>
+                  <li key={i} className="flex gap-3">
+                    <span className="mt-2 size-1.5 shrink-0 rounded-full bg-brand-500" />
+                    {line}
+                  </li>
                 ))}
               </ul>
             </section>
@@ -88,19 +163,44 @@ export default async function TestSeriesDetailPage({ params }: { params: Promise
 
         <aside>
           <Card className="sticky top-24 p-6">
-            <div className="font-serif text-3xl font-semibold">{formatPrice(series.price, series.is_free, series.currency)}</div>
+            <div className="font-serif text-3xl font-semibold">
+              {series.is_free ? 'Free' : 'Included in Course'}
+            </div>
             <p className="mt-1 text-sm text-muted">
-              {series.is_free ? 'Free with a Nursing Level Up account' : series.has_access ? 'You own this test series' : 'One-time payment · lifetime access'}
+              {series.is_free
+                ? 'Free with a Nursing Level Up account'
+                : series.has_access
+                ? 'Unlocked with your course access'
+                : series.access === 'PURCHASED' && series.release_state === 'UPCOMING'
+                ? 'Scheduled to release soon at 5:00 PM IST'
+                : 'Part of the Complete Course (₹299, ₹199 with code NLUP199)'}
             </p>
+
             <div className="mt-5 space-y-2">
               {!ready ? (
                 <p className="rounded-lg bg-sunken p-3 text-sm text-muted">Questions are being added. Check back soon.</p>
               ) : inProgress && series.has_access ? (
-                <ButtonLink href={`/tests/${series.id}`} size="lg" className="w-full">Resume Test</ButtonLink>
+                <ButtonLink href={`/tests/${series.id}`} size="lg" className="w-full">
+                  Resume Test
+                </ButtonLink>
+              ) : action.disabled ? (
+                <Button size="lg" className="w-full" disabled>
+                  {action.label}
+                </Button>
               ) : (
-                <ButtonLink href={action.href} size="lg" className="w-full" data-testid="series-cta">{action.label}</ButtonLink>
+                <ButtonLink href={action.href} size="lg" className="w-full" data-testid="series-cta">
+                  {action.label}
+                </ButtonLink>
               )}
             </div>
+
+            {!series.is_free && series.access !== 'PURCHASED' && (
+              <div className="mt-4 rounded-lg bg-brand-50/70 p-3 text-xs text-brand-900 border border-brand-200/50">
+                <span className="font-semibold">Promo code available:</span> Use code{' '}
+                <strong className="text-brand-700">NLUP199</strong> at checkout to get ₹100 off!
+              </div>
+            )}
+
             {attempts.length > 0 && (
               <div className="mt-6 border-t border-line pt-4">
                 <div className="text-xs font-semibold uppercase tracking-wider text-muted">Your attempts</div>
@@ -109,7 +209,9 @@ export default async function TestSeriesDetailPage({ params }: { params: Promise
                     <li key={a.id} className="flex items-center justify-between py-2">
                       <span className="text-ink-2">{formatDate(a.submitted_at ?? a.started_at)}</span>
                       {a.status === 'COMPLETED' ? (
-                        <Link href={`/results/${a.id}`} className="font-medium text-brand-600 hover:underline">{formatPercent(a.percentage)}</Link>
+                        <Link href={`/results/${a.id}`} className="font-medium text-brand-600 hover:underline">
+                          {formatPercent(a.percentage)}
+                        </Link>
                       ) : (
                         <StatusBadge status={a.status} />
                       )}

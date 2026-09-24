@@ -29,6 +29,10 @@ export const devLoginEnabled = process.env.NODE_ENV !== 'production' && process.
 export const googleConfigured = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
 const devCredentials = z.object({ email: z.email().max(254), name: z.string().max(100).optional() });
+const emailPasswordCredentials = z.object({
+  email: z.email().max(254),
+  password: z.string().min(1).max(128),
+});
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
@@ -38,6 +42,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    }),
+    // Email + password credentials (works in all environments)
+    Credentials({
+      id: 'email-password',
+      name: 'Email & Password',
+      credentials: { email: {}, password: {} },
+      async authorize(raw) {
+        const parsed = emailPasswordCredentials.safeParse(raw);
+        if (!parsed.success) return null;
+        const user = await userService.verifyPassword(parsed.data.email, parsed.data.password);
+        if (!user || user.status !== 'ACTIVE') return null;
+        return { id: user.id, name: user.name, email: user.email };
+      },
     }),
     ...(devLoginEnabled
       ? [
@@ -69,7 +86,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!user || user.status !== 'ACTIVE') return '/login?error=AccessDenied';
         return true;
       }
-      return account?.provider === 'dev' && devLoginEnabled;
+      // email-password and dev credentials are already validated in authorize()
+      return account?.provider === 'email-password' || (account?.provider === 'dev' && devLoginEnabled);
     },
     async jwt({ token, account, user }) {
       if (account) {
@@ -96,3 +114,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
+

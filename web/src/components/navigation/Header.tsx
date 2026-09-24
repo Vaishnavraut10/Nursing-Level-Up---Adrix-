@@ -13,6 +13,15 @@ export async function Header() {
         <Logo />
         <nav className="flex items-center gap-1" aria-label="Main">
           <Link
+            href="/course"
+            className="flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-semibold tracking-[-0.01em] text-brand-700 hover:bg-brand-50 transition-colors"
+          >
+            <span>Course</span>
+            <span className="rounded-full bg-brand-500/10 px-2 py-0.5 text-[10px] font-bold text-brand-700 ring-1 ring-inset ring-brand-500/20">
+              ₹199
+            </span>
+          </Link>
+          <Link
             href="/test-series"
             className="rounded-lg px-4 py-2 text-sm font-medium tracking-[-0.01em] text-ink-2 transition-colors hover:bg-brand-50 hover:text-brand-700"
           >

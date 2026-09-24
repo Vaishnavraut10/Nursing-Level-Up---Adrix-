@@ -91,7 +91,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </div>
 
           <p className="mt-10 text-center text-xs leading-relaxed text-faint">
-            We only use your Google name and email to create your account.
+            Sign up with Google or create an account with your email.
             <br />
             Your phone number is asked for separately after sign-in.
           </p>

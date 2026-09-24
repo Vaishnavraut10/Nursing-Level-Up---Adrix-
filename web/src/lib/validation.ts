@@ -50,13 +50,28 @@ export const testSeriesBaseSchema = z.object({
     .max(600, 'Duration must be at most 600 minutes'),
   instructions: optionalText(10000),
   status: testStatusSchema.default('DRAFT'),
+  course_id: z.string().uuid().optional().nullable().transform((v) => v || null),
+  release_after_days: z.coerce.number().int().min(0).max(365).default(0),
 });
 
 export const testSeriesInputSchema = testSeriesBaseSchema
-  .refine((v) => !v.is_free || v.price === 0, { message: 'Free tests must have price 0', path: ['price'] })
-  .refine((v) => v.is_free || v.price > 0, { message: 'Paid tests need a price above 0', path: ['price'] });
+  .refine((v) => !v.is_free || v.price === 0, { message: 'Free tests must have price 0', path: ['price'] });
 
 export type TestSeriesInput = z.infer<typeof testSeriesInputSchema>;
+
+export const courseStatusSchema = z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']);
+
+export const courseInputSchema = z.object({
+  title: z.string().trim().min(1, 'Title is required').max(200, 'Title must be at most 200 characters'),
+  description: optionalText(5000),
+  price: z.coerce.number().min(0, 'Price must be 0 or more').max(100000, 'Price is too high').default(299),
+  discount_price: z.coerce.number().min(0).max(100000).optional().nullable(),
+  promo_code: z.string().trim().max(50).optional().nullable().transform((v) => (v ? v.toUpperCase() : null)),
+  currency: z.literal('INR').default('INR'),
+  status: courseStatusSchema.default('DRAFT'),
+});
+
+export type CourseInput = z.infer<typeof courseInputSchema>;
 
 export const questionInputSchema = z.object({
   question_text: z.string().trim().min(1, 'Question is required').max(5000),

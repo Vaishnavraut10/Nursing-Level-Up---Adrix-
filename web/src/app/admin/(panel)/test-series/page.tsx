@@ -27,16 +27,16 @@ export default async function AdminTestSeriesPage({ searchParams }: { searchPara
       </FilterBar>
       <Table>
         <thead>
-          <tr><Th>Title</Th><Th>Price</Th><Th className="text-right">Questions</Th><Th className="text-right">Attempts</Th><Th className="text-right">Sales</Th><Th>Status</Th><Th>Created</Th><Th /></tr>
+          <tr><Th>Title</Th><Th>Access</Th><Th>Release Day</Th><Th className="text-right">Questions</Th><Th className="text-right">Attempts</Th><Th>Status</Th><Th>Created</Th><Th /></tr>
         </thead>
         <tbody>
           {data.items.map((s) => (
             <tr key={s.id} className="hover:bg-sunken/40">
               <Td><Link href={`/admin/test-series/${s.id}`} className="font-medium text-ink hover:text-brand-600">{s.title}</Link></Td>
-              <Td>{formatPrice(s.price, s.is_free, s.currency)}</Td>
+              <Td>{s.is_free ? 'Free' : 'Course Pass'}</Td>
+              <Td>{s.release_after_days === 0 ? 'Day 1 (Instant)' : `Day ${s.release_after_days + 1} (5 PM)`}</Td>
               <Td className="text-right tabular-nums">{s.question_count}</Td>
               <Td className="text-right tabular-nums">{s.attempt_count}</Td>
-              <Td className="text-right tabular-nums">{s.is_free ? '—' : s.purchase_count}</Td>
               <Td><StatusBadge status={s.status} /></Td>
               <Td>{formatDate(s.created_at)}</Td>
               <Td className="whitespace-nowrap text-right">

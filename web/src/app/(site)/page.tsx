@@ -5,6 +5,7 @@ import { TestSeriesCard } from "@/components/test-series/TestSeriesCard";
 import { SampleQuestion } from "@/components/test-series/SampleQuestion";
 import { getCurrentUser } from "@/lib/server/session";
 import { listPublished } from "@/lib/server/services/testSeriesService";
+import { getPublishedCourse, hasCoursePurchase } from "@/lib/server/services/courseService";
 import { TrustStrip } from "@/components/landing/TrustStrip";
 import { ProductShowcase } from "@/components/landing/ProductShowcase";
 import { HowItWorks } from "@/components/landing/HowItWorks";
@@ -18,7 +19,11 @@ export const dynamic = "force-dynamic";
 
 export default async function LandingPage() {
   const user = await getCurrentUser();
-  const series = await listPublished(user);
+  const [course, series] = await Promise.all([
+    getPublishedCourse(),
+    listPublished(user),
+  ]);
+  const hasCourseAccess = course && user ? await hasCoursePurchase(user.id, course.id) : false;
   const free = series.filter((s) => s.is_free);
   const paid = series.filter((s) => !s.is_free);
   const firstFree = free[0];
@@ -57,16 +62,16 @@ export default async function LandingPage() {
             </p>
 
             <div className="mt-10 flex flex-wrap items-center gap-3.5">
-              <ButtonLink href="/test-series" size="lg" className="rounded-full px-7 shadow-md shadow-brand-700/15">
-                Explore Test Series
+              <ButtonLink href="/course" size="lg" className="rounded-full px-7 shadow-md shadow-brand-700/15">
+                Explore Course Pass
               </ButtonLink>
               <ButtonLink
-                href={firstFree ? "/test-series/" + firstFree.id : "/test-series"}
+                href="/test-series"
                 size="lg"
                 variant="secondary"
                 className="rounded-full px-7"
               >
-                Try Free Test
+                Browse All Tests
               </ButtonLink>
             </div>
 
@@ -74,7 +79,7 @@ export default async function LandingPage() {
             <div className="mt-12 border-t border-line/50 pt-7">
               <dl className="flex items-stretch gap-0">
                 <div className="animate-fade-up stagger-1 flex-1 pr-6">
-                  <dd className="font-serif text-4xl font-semibold text-ink tabular-nums">{series.length}</dd>
+                  <dd className="font-serif text-4xl font-semibold text-ink tabular-nums">{series.length > 0 ? series.length : '200+'}</dd>
                   <dt className="mt-1 text-xs font-medium uppercase tracking-[0.1em] text-muted">Test series</dt>
                 </div>
                 <div className="self-stretch w-px bg-line" aria-hidden="true" />
@@ -84,8 +89,8 @@ export default async function LandingPage() {
                 </div>
                 <div className="self-stretch w-px bg-line" aria-hidden="true" />
                 <div className="animate-fade-up stagger-3 flex-1 pl-6">
-                  <dd className="font-serif text-4xl font-semibold text-ink">&#x20B9;199</dd>
-                  <dt className="mt-1 text-xs font-medium uppercase tracking-[0.1em] text-muted">Full series</dt>
+                  <dd className="font-serif text-4xl font-semibold text-ink">&#x20B9;299</dd>
+                  <dt className="mt-1 text-xs font-medium uppercase tracking-[0.1em] text-muted">Course pass</dt>
                 </div>
               </dl>
             </div>
@@ -148,12 +153,50 @@ export default async function LandingPage() {
             <div className="h-px flex-1 bg-line/50" />
           </div>
 
-          <ScrollReveal className="mt-8">
-            <SectionTag>Go deeper</SectionTag>
+          {/* Featured Course Showcase */}
+          {course && (
+            <div className="mt-14 overflow-hidden rounded-3xl border border-brand-200/80 bg-gradient-to-br from-surface via-surface to-brand-50/40 p-7 sm:p-10 shadow-sm">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                <div className="max-w-2xl">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 ring-1 ring-inset ring-brand-200/60">
+                    <span className="size-1.5 rounded-full bg-brand-500" />
+                    Complete Course
+                  </div>
+                  <h3 className="mt-3 font-serif text-2xl sm:text-3xl font-semibold text-ink">
+                    {course.title}
+                  </h3>
+                  <p className="mt-2 text-sm sm:text-base leading-relaxed text-muted">
+                    {course.description ||
+                      'The all-in-one preparation program with up to 200+ timed MCQ test series. Series 1 unlocks immediately, with new series released every day at 5:00 PM IST.'}
+                  </p>
+                  <div className="mt-4 flex flex-wrap items-center gap-4 text-xs font-medium text-ink-2">
+                    <span className="flex items-center gap-1.5">
+                      <span className="size-1.5 rounded-full bg-ok" /> Up to 200+ Test Series
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="size-1.5 rounded-full bg-amber-500" /> Daily 5 PM IST Unlocks
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="size-1.5 rounded-full bg-brand-500" /> ₹{course.price} ({course.promo_code ? `₹${course.discount_price} with code ${course.promo_code}` : 'Full Access'})
+                    </span>
+                  </div>
+                </div>
+
+                <div className="shrink-0 flex flex-col sm:flex-row gap-3">
+                  <ButtonLink href="/course" size="lg" className="rounded-2xl px-6 shadow-xs font-semibold">
+                    View Course & Solve Tests →
+                  </ButtonLink>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <ScrollReveal className="mt-14">
+            <SectionTag>Course Curriculum</SectionTag>
             <div className="mt-3 flex items-end justify-between gap-4">
-              <h2 className="font-serif text-3xl font-semibold tracking-tight sm:text-4xl">Full test series</h2>
-              <Link href="/test-series" className="shrink-0 text-sm font-medium text-brand-600 transition-colors hover:text-brand-700">
-                View all <span className="ml-0.5">→</span>
+              <h2 className="font-serif text-3xl font-semibold tracking-tight sm:text-4xl">Course test series</h2>
+              <Link href="/course" className="shrink-0 text-sm font-medium text-brand-600 transition-colors hover:text-brand-700">
+                View all in course <span className="ml-0.5">→</span>
               </Link>
             </div>
           </ScrollReveal>
@@ -167,7 +210,7 @@ export default async function LandingPage() {
             </div>
           ) : (
             <div className="mt-8">
-              <EmptyState title="Full test series are on their way" />
+              <EmptyState title="Course test series are on their way" />
             </div>
           )}
         </Container>

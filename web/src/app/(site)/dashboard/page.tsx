@@ -213,12 +213,12 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* ── Purchased Test Series ── */}
+        {/* ── Course Access & Enrollment ── */}
         <section className="mt-10">
           <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-ink">Purchased Test Series</h2>
+            <h2 className="text-xl font-semibold text-ink">Course Access & Enrollment</h2>
             <Link href="/test-series" className="text-sm font-medium text-brand-600 hover:text-brand-700 transition-colors">
-              Browse all →
+              Browse all tests →
             </Link>
           </div>
           {owned.length === 0 ? (
@@ -226,12 +226,12 @@ export default async function DashboardPage() {
               <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
                 <BookIcon />
               </div>
-              <h3 className="mt-4 font-serif text-xl text-ink">No test series yet</h3>
-              <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-                Explore our nursing test series and start preparing for your exams today.
+              <h3 className="mt-4 font-serif text-xl text-ink">No course enrollment yet</h3>
+              <p className="mx-auto mt-2 max-w-md text-sm text-muted">
+                Enroll in the Nursing Level Up Complete Course for ₹299 (use code <strong className="font-semibold text-brand-700">NLUP199</strong> for ₹199). Get full access to 200+ test series with new tests released daily at 5:00 PM IST!
               </p>
-              <ButtonLink href="/test-series" className="mt-6 rounded-full px-6" size="md">
-                Browse Test Series
+              <ButtonLink href="/course" className="mt-6 rounded-full px-6" size="md">
+                Enroll in Course — ₹199
               </ButtonLink>
             </div>
           ) : (
@@ -243,21 +243,23 @@ export default async function DashboardPage() {
                       <BookIcon />
                     </div>
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-white">{p.test_title}</div>
+                      <div className="truncate text-sm font-semibold text-white">
+                        {p.course_title ?? p.test_title ?? 'Complete Course'}
+                      </div>
                     </div>
                   </div>
                   <div className="flex flex-1 flex-col p-5">
                     <div className="flex items-center gap-3 text-xs text-muted">
-                      <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-brand-700 font-medium">Owned</span>
-                      <span>Purchased {formatDate(p.created_at)}</span>
+                      <span className="rounded-full bg-ok-50 px-2.5 py-0.5 text-ok font-semibold">Active Access</span>
+                      <span>Enrolled {formatDate(p.created_at)}</span>
                     </div>
-                    <div className="mt-2 text-sm text-muted">{formatMoney(p.amount, p.currency)} · Full access</div>
+                    <div className="mt-2 text-sm text-muted">
+                      {formatMoney(p.amount, p.currency)}
+                      {p.promo_code_used && ` · Code ${p.promo_code_used}`} · Daily 5 PM Releases
+                    </div>
                     <div className="mt-5 flex gap-2">
-                      <ButtonLink href={`/tests/${p.test_series_id}`} size="sm" className="flex-1 justify-center rounded-lg">
-                        Start Test
-                      </ButtonLink>
-                      <ButtonLink href={`/test-series/${p.test_series_id}`} size="sm" variant="secondary" className="rounded-lg">
-                        Details
+                      <ButtonLink href="/test-series" size="sm" className="flex-1 justify-center rounded-lg">
+                        Go to Test Series
                       </ButtonLink>
                     </div>
                   </div>

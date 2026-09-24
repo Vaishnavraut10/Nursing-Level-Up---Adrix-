@@ -4,9 +4,9 @@ import { formatPrice } from '@/lib/format';
 
 const ACCESS_LABEL: Record<AccessState, string> = {
   FREE: 'Free',
-  LOGIN_REQUIRED: 'Login required',
-  PURCHASE_REQUIRED: 'Purchase required',
-  PURCHASED: 'Purchased',
+  LOGIN_REQUIRED: 'Course Content',
+  PURCHASE_REQUIRED: 'Included in Course',
+  PURCHASED: 'Course Enrolled',
 };
 
 /* ── Subject Icon Detector ── */
@@ -133,7 +133,7 @@ export function FreeSeriesCard({ series }: { series: PublicTestSeries }) {
 
   return (
     <Link
-      href={`/test-series/${series.id}`}
+      href={`/tests/${series.id}`}
       className="group relative flex h-full flex-col overflow-hidden rounded-[1.25rem] border border-line/75 bg-surface shadow-xs transition-all duration-250 hover:-translate-y-1 hover:border-brand-300/80 hover:shadow-[0_14px_38px_rgba(0,0,0,0.07),0_0_0_1px_rgba(31,122,115,0.12)]"
     >
       {/* Top teal accent stripe */}
@@ -188,7 +188,7 @@ export function FreeSeriesCard({ series }: { series: PublicTestSeries }) {
 
             {/* Clear Text CTA */}
             <span className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-brand-600 transition-all duration-200 group-hover:text-brand-700 group-hover:translate-x-0.5">
-              <span>Start test</span>
+              <span>Solve test</span>
               <ArrowIcon />
             </span>
           </div>
@@ -198,14 +198,22 @@ export function FreeSeriesCard({ series }: { series: PublicTestSeries }) {
   );
 }
 
-/* ── Paid card ── */
+/* ── Paid / Course card ── */
 export function PaidSeriesCard({ series }: { series: PublicTestSeries }) {
   const isPurchased = series.access === 'PURCHASED';
+  const isUnlocked = series.has_access;
+  const isUpcoming = isPurchased && series.release_state === 'UPCOMING';
   const subject = getSubjectIcon(series.title);
+  const targetUrl = isUnlocked ? `/tests/${series.id}` : `/test-series/${series.id}`;
+
+  const releaseLabel =
+    series.release_after_days === 0
+      ? 'Day 1 Release'
+      : `Day ${series.release_after_days + 1} Release`;
 
   return (
     <Link
-      href={`/test-series/${series.id}`}
+      href={targetUrl}
       className="group relative flex h-full flex-col overflow-hidden rounded-[1.25rem] border border-line-strong/60 bg-surface shadow-xs transition-all duration-250 hover:-translate-y-1 hover:border-amber-300/80 hover:shadow-[0_14px_38px_rgba(0,0,0,0.08),0_0_0_1px_rgba(180,83,42,0.12)]"
     >
       {/* Subtle premium gold top accent stripe */}
@@ -219,7 +227,7 @@ export function PaidSeriesCard({ series }: { series: PublicTestSeries }) {
       </div>
 
       <div className="flex flex-1 flex-col p-6 sm:p-7">
-        {/* Header row: Subject Icon + Price / Status */}
+        {/* Header row: Subject Icon + Course Status */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <span className={`flex size-8 items-center justify-center rounded-lg border ${subject.color} shadow-xs`} aria-hidden="true">
@@ -230,23 +238,33 @@ export function PaidSeriesCard({ series }: { series: PublicTestSeries }) {
             </span>
           </div>
 
-          {isPurchased ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold tracking-wide text-brand-700 ring-1 ring-inset ring-brand-200/60">
-              <span className="size-1.5 rounded-full bg-brand-500" />
-              Purchased
+          {isUnlocked ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-ok-50 px-2.5 py-0.5 text-xs font-semibold tracking-wide text-ok ring-1 ring-inset ring-ok/20">
+              <span className="size-1.5 rounded-full bg-ok" />
+              Unlocked
+            </span>
+          ) : isUpcoming ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold tracking-wide text-amber-700 ring-1 ring-inset ring-amber-200/60">
+              <svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+              5 PM IST Release
             </span>
           ) : (
-            <div className="flex items-baseline gap-1 text-right">
-              <span className="font-serif text-xl font-bold tracking-tight text-ink">
-                {formatPrice(series.price, series.is_free, series.currency)}
-              </span>
-            </div>
+            <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-semibold tracking-wide text-brand-700 ring-1 ring-inset ring-brand-200/60">
+              Course Pass
+            </span>
           )}
         </div>
 
         {/* Title + Description */}
         <div className="mt-5 flex-1">
-          <h3 className="font-serif text-[1.22rem] font-semibold leading-snug tracking-tight text-ink transition-colors duration-200 group-hover:text-brand-700">
+          <div className="flex items-center gap-2 text-[11px] font-medium text-muted">
+            <span className="inline-block size-1.5 rounded-full bg-amber-500/70" />
+            <span>{releaseLabel}</span>
+          </div>
+          <h3 className="mt-1 font-serif text-[1.22rem] font-semibold leading-snug tracking-tight text-ink transition-colors duration-200 group-hover:text-brand-700">
             {series.title}
           </h3>
           {series.description && (
@@ -274,14 +292,19 @@ export function PaidSeriesCard({ series }: { series: PublicTestSeries }) {
             </div>
 
             {/* Clear Text CTA */}
-            {isPurchased ? (
-              <span className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-brand-600 transition-all duration-200 group-hover:text-brand-700 group-hover:translate-x-0.5">
-                <span>Start test</span>
+            {isUnlocked ? (
+              <span className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-ok transition-all duration-200 group-hover:text-ok group-hover:translate-x-0.5">
+                <span>Solve test</span>
+                <ArrowIcon />
+              </span>
+            ) : isUpcoming ? (
+              <span className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-amber-700 transition-all duration-200 group-hover:text-amber-800">
+                <span>View timing</span>
                 <ArrowIcon />
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-amber-700 transition-all duration-200 group-hover:text-amber-800 group-hover:translate-x-0.5">
-                <span>View series</span>
+              <span className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-brand-700 transition-all duration-200 group-hover:text-brand-800 group-hover:translate-x-0.5">
+                <span>Course details</span>
                 <ArrowIcon />
               </span>
             )}

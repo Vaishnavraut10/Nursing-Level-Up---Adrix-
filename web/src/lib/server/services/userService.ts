@@ -1,8 +1,9 @@
 import 'server-only';
 import { query, queryOne } from '../db';
 import type { User } from '@/types';
+import bcrypt from 'bcryptjs';
 
-const USER_COLUMNS = 'id, google_id, name, email, phone, role, status, created_at, updated_at, last_login_at';
+const USER_COLUMNS = 'id, google_id, password_hash, name, email, phone, role, status, created_at, updated_at, last_login_at';
 
 export async function findById(id: string) {
   return queryOne<User>(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [id]);
@@ -59,6 +60,32 @@ export async function upsertForDevLogin(email: string, name?: string) {
   );
 }
 
+// ---- Email / password authentication ----
+
+const SALT_ROUNDS = 12;
+
+/** Create a new user account with email and password. Returns null if the email is already taken. */
+export async function createWithPassword(data: { email: string; password: string; name: string }) {
+  const existing = await findByEmail(data.email);
+  if (existing) return null; // email already in use
+  const hash = await bcrypt.hash(data.password, SALT_ROUNDS);
+  return queryOne<User>(
+    `INSERT INTO users (name, email, password_hash, role, last_login_at)
+     VALUES ($1, $2, $3, 'STUDENT', now()) RETURNING ${USER_COLUMNS}`,
+    [data.name.trim().slice(0, 200) || data.email.split('@')[0], data.email.toLowerCase(), hash],
+  );
+}
+
+/** Verify email + password credentials. Returns the user if valid, null otherwise. */
+export async function verifyPassword(email: string, password: string) {
+  const user = await findByEmail(email.toLowerCase());
+  if (!user || !user.password_hash) return null; // no account or no password set (Google-only)
+  const valid = await bcrypt.compare(password, user.password_hash);
+  if (!valid) return null;
+  // Update last login timestamp
+  return queryOne<User>(`UPDATE users SET last_login_at = now() WHERE id = $1 RETURNING ${USER_COLUMNS}`, [user.id]);
+}
+
 export async function updatePhone(userId: string, phone: string) {
   return queryOne<User>(`UPDATE users SET phone = $2 WHERE id = $1 RETURNING ${USER_COLUMNS}`, [userId, phone]);
 }
@@ -67,3 +94,4 @@ export async function isPhoneTaken(phone: string, exceptUserId: string) {
   const rows = await query(`SELECT 1 FROM users WHERE phone = $1 AND id <> $2 LIMIT 1`, [phone, exceptUserId]);
   return rows.length > 0;
 }
+

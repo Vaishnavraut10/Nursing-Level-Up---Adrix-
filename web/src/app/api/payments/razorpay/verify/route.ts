@@ -15,5 +15,5 @@ export const POST = route(async (req) => {
   const user = await requireUser();
   rateLimit('verify:' + user.id, 20, 60_000);
   const purchase = await verifyCheckout(user, await readJson(req, schema));
-  return ok({ purchaseId: purchase.id, status: purchase.status, testSeriesId: purchase.test_series_id });
+  return ok({ purchaseId: purchase.id, status: purchase.status, courseId: purchase.course_id, testSeriesId: purchase.test_series_id });
 });

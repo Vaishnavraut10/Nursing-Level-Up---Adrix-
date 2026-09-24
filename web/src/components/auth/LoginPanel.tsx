@@ -24,6 +24,34 @@ function LockIcon() {
   );
 }
 
+function MailIcon() {
+  return (
+    <svg className="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path d="M3 4a2 2 0 0 0-2 2v1.161l8.441 4.221a1.25 1.25 0 0 0 1.118 0L19 7.161V6a2 2 0 0 0-2-2H3Z" />
+      <path d="m19 8.839-7.77 3.885a2.75 2.75 0 0 1-2.46 0L1 8.839V14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.839Z" />
+    </svg>
+  );
+}
+
+function EyeIcon({ open }: { open: boolean }) {
+  if (open) {
+    return (
+      <svg className="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
+        <path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 0 1 0-1.186A10.004 10.004 0 0 1 10 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0 1 10 17c-4.257 0-7.893-2.66-9.336-6.41ZM14 10a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" clipRule="evenodd" />
+      </svg>
+    );
+  }
+  return (
+    <svg className="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M3.28 2.22a.75.75 0 0 0-1.06 1.06l14.5 14.5a.75.75 0 1 0 1.06-1.06l-1.745-1.745a10.029 10.029 0 0 0 3.3-4.38 1.651 1.651 0 0 0 0-1.185A10.004 10.004 0 0 0 9.999 3a9.956 9.956 0 0 0-4.744 1.194L3.28 2.22ZM7.752 6.69l1.092 1.092a2.5 2.5 0 0 1 3.374 3.373l1.092 1.092a4 4 0 0 0-5.558-5.558Z" clipRule="evenodd" />
+      <path d="M10.748 13.93 8.07 11.25A2.495 2.495 0 0 0 10 12.5c.089 0 .176-.005.262-.013L10.748 13.93ZM7.4 12.9l-3.742-3.742A10.059 10.059 0 0 0 .664 10.6a1.651 1.651 0 0 0 0 1.186A10.004 10.004 0 0 0 10 18c.791 0 1.568-.09 2.314-.268L10.6 16.018A8.502 8.502 0 0 1 1.623 10l1.02-1.02A8.47 8.47 0 0 0 7.4 12.9Z" />
+    </svg>
+  );
+}
+
+type Mode = 'login' | 'register';
+
 export function LoginPanel({
   next,
   googleConfigured,
@@ -38,16 +66,98 @@ export function LoginPanel({
   admin?: boolean;
 }) {
   const router = useRouter();
-  const [busy, setBusy] = useState<'google' | 'dev' | null>(null);
-  const [email, setEmail] = useState(admin ? 'admin@example.test' : 'student1@example.test');
+  const [mode, setMode] = useState<Mode>('login');
+  const [busy, setBusy] = useState<'google' | 'email' | 'dev' | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = useState<string | null>(null);
+
+  // Dev login state
+  const [devEmail, setDevEmail] = useState(admin ? 'admin@example.test' : 'student1@example.test');
   const [devError, setDevError] = useState<string | null>(null);
+
   const redirectTo = `/auth/continue?next=${encodeURIComponent(next)}`;
+
+  async function handleEmailLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy('email');
+    setFormError(null);
+    setFormSuccess(null);
+
+    const res = await signIn('email-password', {
+      email,
+      password,
+      redirect: false,
+      redirectTo,
+    });
+
+    if (res?.error) {
+      setFormError('Invalid email or password. Please try again.');
+      setBusy(null);
+      return;
+    }
+    router.push(redirectTo);
+    router.refresh();
+  }
+
+  async function handleRegister(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy('email');
+    setFormError(null);
+    setFormSuccess(null);
+
+    if (password.length < 8) {
+      setFormError('Password must be at least 8 characters.');
+      setBusy(null);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setFormError(data.error || 'Registration failed. Please try again.');
+        setBusy(null);
+        return;
+      }
+
+      // Auto sign-in after successful registration
+      const signInRes = await signIn('email-password', {
+        email,
+        password,
+        redirect: false,
+        redirectTo,
+      });
+
+      if (signInRes?.error) {
+        setFormSuccess('Account created! Please sign in.');
+        setMode('login');
+        setBusy(null);
+        return;
+      }
+
+      router.push(redirectTo);
+      router.refresh();
+    } catch {
+      setFormError('Something went wrong. Please try again.');
+      setBusy(null);
+    }
+  }
 
   async function devLogin(e: React.FormEvent) {
     e.preventDefault();
     setBusy('dev');
     setDevError(null);
-    const res = await signIn('dev', { email, redirect: false, redirectTo });
+    const res = await signIn('dev', { email: devEmail, redirect: false, redirectTo });
     if (res?.error) {
       setDevError('Sign-in failed. The account may be suspended.');
       setBusy(null);
@@ -68,6 +178,8 @@ export function LoginPanel({
               : 'Please try again.'}
         </Alert>
       )}
+
+      {formSuccess && <Alert tone="ok" title="Success">{formSuccess}</Alert>}
 
       {/* Google sign-in button */}
       <button
@@ -98,6 +210,154 @@ export function LoginPanel({
         </p>
       )}
 
+      {/* Divider */}
+      <div className="flex items-center gap-3">
+        <div className="h-px flex-1 bg-line" />
+        <span className="text-xs font-medium text-faint">or continue with email</span>
+        <div className="h-px flex-1 bg-line" />
+      </div>
+
+      {/* Mode toggle tabs */}
+      <div className="flex rounded-lg bg-sunken p-1">
+        <button
+          type="button"
+          onClick={() => { setMode('login'); setFormError(null); setFormSuccess(null); }}
+          className={cx(
+            'flex-1 rounded-md px-4 py-2 text-sm font-medium transition-all duration-200',
+            mode === 'login'
+              ? 'bg-surface text-ink shadow-sm'
+              : 'text-muted hover:text-ink',
+          )}
+        >
+          Sign In
+        </button>
+        <button
+          type="button"
+          onClick={() => { setMode('register'); setFormError(null); setFormSuccess(null); }}
+          className={cx(
+            'flex-1 rounded-md px-4 py-2 text-sm font-medium transition-all duration-200',
+            mode === 'register'
+              ? 'bg-surface text-ink shadow-sm'
+              : 'text-muted hover:text-ink',
+          )}
+        >
+          Create Account
+        </button>
+      </div>
+
+      {/* Email / Password form */}
+      <form
+        onSubmit={mode === 'login' ? handleEmailLogin : handleRegister}
+        className="space-y-4"
+      >
+        {formError && <Alert>{formError}</Alert>}
+
+        {mode === 'register' && (
+          <Field label="Full Name" htmlFor="auth-name" required>
+            <Input
+              id="auth-name"
+              type="text"
+              required
+              placeholder="Your full name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoComplete="name"
+              disabled={busy !== null}
+            />
+          </Field>
+        )}
+
+        <Field label="Email Address" htmlFor="auth-email" required>
+          <div className="relative">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-faint">
+              <MailIcon />
+            </div>
+            <Input
+              id="auth-email"
+              type="email"
+              required
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              className="pl-10"
+              disabled={busy !== null}
+            />
+          </div>
+        </Field>
+
+        <Field
+          label="Password"
+          htmlFor="auth-password"
+          required
+          hint={mode === 'register' ? 'Must be at least 8 characters' : undefined}
+        >
+          <div className="relative">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-faint">
+              <LockIcon />
+            </div>
+            <Input
+              id="auth-password"
+              type={showPassword ? 'text' : 'password'}
+              required
+              placeholder={mode === 'register' ? 'Create a strong password' : 'Enter your password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+              minLength={mode === 'register' ? 8 : undefined}
+              className="pl-10 pr-10"
+              disabled={busy !== null}
+            />
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-faint hover:text-muted transition-colors"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              <EyeIcon open={showPassword} />
+            </button>
+          </div>
+        </Field>
+
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          loading={busy === 'email'}
+          disabled={busy !== null}
+        >
+          {mode === 'login' ? 'Sign In' : 'Create Account'}
+        </Button>
+
+        {/* Toggle message */}
+        <p className="text-center text-sm text-muted">
+          {mode === 'login' ? (
+            <>
+              Don&apos;t have an account?{' '}
+              <button
+                type="button"
+                onClick={() => { setMode('register'); setFormError(null); setFormSuccess(null); }}
+                className="font-semibold text-brand-600 hover:text-brand-700 transition-colors"
+              >
+                Create one
+              </button>
+            </>
+          ) : (
+            <>
+              Already have an account?{' '}
+              <button
+                type="button"
+                onClick={() => { setMode('login'); setFormError(null); setFormSuccess(null); }}
+                className="font-semibold text-brand-600 hover:text-brand-700 transition-colors"
+              >
+                Sign in
+              </button>
+            </>
+          )}
+        </p>
+      </form>
+
       {/* Trust indicators */}
       <div className="flex items-center justify-center gap-4 text-xs text-faint">
         <span className="flex items-center gap-1.5">
@@ -105,7 +365,7 @@ export function LoginPanel({
           Secure sign-in
         </span>
         <span className="h-3 w-px bg-line" aria-hidden="true" />
-        <span>No password needed</span>
+        <span>Encrypted passwords</span>
       </div>
 
       {/* Dev login */}
@@ -122,7 +382,7 @@ export function LoginPanel({
               Signs in as an existing account, or creates a new student.
             </p>
             <Field label="Email" htmlFor="dev-email" error={devError}>
-              <Input id="dev-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+              <Input id="dev-email" type="email" required value={devEmail} onChange={(e) => setDevEmail(e.target.value)} autoComplete="email" />
             </Field>
             <Button type="submit" size="sm" variant="secondary" loading={busy === 'dev'} disabled={busy !== null}>
               Sign in as dev user

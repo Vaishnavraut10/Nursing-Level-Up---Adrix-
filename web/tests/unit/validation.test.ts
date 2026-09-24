@@ -24,7 +24,8 @@ describe('testSeriesInputSchema', () => {
   const base = { title: 'T', description: null, is_free: true, price: 0, duration_minutes: 10, instructions: null, status: 'DRAFT' };
   it('accepts a valid free test', () => expect(testSeriesInputSchema.safeParse(base).success).toBe(true));
   it('rejects a free test with a price', () => expect(testSeriesInputSchema.safeParse({ ...base, price: 5 }).success).toBe(false));
-  it('rejects a paid test priced 0', () => expect(testSeriesInputSchema.safeParse({ ...base, is_free: false }).success).toBe(false));
+  it('accepts a course pass test with price 0', () => expect(testSeriesInputSchema.safeParse({ ...base, is_free: false, price: 0 }).success).toBe(true));
+  it('rejects a negative price', () => expect(testSeriesInputSchema.safeParse({ ...base, is_free: false, price: -10 }).success).toBe(false));
   it('rejects zero duration and empty title', () => {
     expect(testSeriesInputSchema.safeParse({ ...base, duration_minutes: 0 }).success).toBe(false);
     expect(testSeriesInputSchema.safeParse({ ...base, title: '  ' }).success).toBe(false);

@@ -3,67 +3,79 @@ import { query, queryOne, transaction, type Queryable } from '../db';
 import { ApiError, Errors } from '../../errors';
 import type { Purchase, User } from '@/types';
 import * as razorpay from '../razorpay';
+import * as courseService from './courseService';
 
-const PURCHASE_COLUMNS = `p.id, p.user_id, p.test_series_id, p.amount, p.currency, p.provider, p.order_id,
-  p.payment_id, p.status, p.created_at, p.updated_at`;
+const PURCHASE_COLUMNS = `p.id, p.user_id, p.test_series_id, p.course_id, p.amount, p.currency, p.provider, p.order_id,
+  p.payment_id, p.promo_code_used, p.status, p.created_at, p.updated_at`;
 
 export interface CheckoutOrder {
   purchase: Purchase;
   razorpay: { keyId: string; orderId: string; amount: number; currency: string };
   prefill: { name: string; email: string; contact: string | null };
-  test: { id: string; title: string };
+  course: { id: string; title: string };
 }
 
 /**
- * Creates (or reuses) a PENDING purchase and its Razorpay order. The amount is copied from the database
- * price at this moment and never recalculated, so later price edits don't change history (PRD §6.7).
+ * Creates (or reuses) a PENDING course purchase and its Razorpay order.
+ * The amount is copied from the database price at this moment (or discounted price if promo valid).
  */
-export async function createCheckout(user: User, testSeriesId: string): Promise<CheckoutOrder> {
-  const series = await queryOne<{ id: string; title: string; price: number; currency: string; is_free: boolean }>(
-    `SELECT id, title, price, currency, is_free FROM test_series WHERE id = $1 AND status = 'PUBLISHED'`,
-    [testSeriesId],
-  );
-  if (!series) throw Errors.notFound('Test series');
-  if (series.is_free) throw Errors.conflict('This test series is free — no purchase needed');
+export async function createCourseCheckout(user: User, courseId: string, promoCode?: string): Promise<CheckoutOrder> {
+  const course = await courseService.getById(courseId);
+  if (!course || course.status !== 'PUBLISHED') throw Errors.notFound('Course');
+
+  // Check if already purchased
+  const alreadyOwned = await courseService.hasCoursePurchase(user.id, courseId);
+  if (alreadyOwned) throw Errors.conflict('You already own this course');
+
+  // Determine final price (promo code discount)
+  let finalPrice = course.price;
+  let usedPromo: string | null = null;
+  if (promoCode) {
+    const discounted = courseService.validatePromoCode(course, promoCode);
+    if (discounted !== null) {
+      finalPrice = discounted;
+      usedPromo = promoCode.trim().toUpperCase();
+    }
+  }
 
   const existing = await query<Purchase>(
     `SELECT ${PURCHASE_COLUMNS} FROM purchases p
-      WHERE p.user_id = $1 AND p.test_series_id = $2 AND p.status IN ('SUCCESS', 'PENDING')
+      WHERE p.user_id = $1 AND p.course_id = $2 AND p.status IN ('SUCCESS', 'PENDING')
       ORDER BY p.created_at DESC`,
-    [user.id, testSeriesId],
+    [user.id, courseId],
   );
-  if (existing.some((p) => p.status === 'SUCCESS')) throw Errors.conflict('You already own this test series');
+  if (existing.some((p) => p.status === 'SUCCESS')) throw Errors.conflict('You already own this course');
 
   const keyId = razorpay.publicKeyId();
   const base = {
     prefill: { name: user.name, email: user.email, contact: user.phone },
-    test: { id: series.id, title: series.title },
+    course: { id: course.id, title: course.title },
   };
 
-  // Reuse a recent pending order at the current price instead of creating a new one on every click.
+  // Reuse a recent pending order at the same price instead of creating a new one on every click.
   const reusable = existing.find(
-    (p) => p.status === 'PENDING' && p.amount === series.price && Date.now() - new Date(p.created_at).getTime() < 12 * 3600_000,
+    (p) => p.status === 'PENDING' && p.amount === finalPrice && Date.now() - new Date(p.created_at).getTime() < 12 * 3600_000,
   );
   if (reusable) {
     return { ...base, purchase: reusable, razorpay: { keyId, orderId: reusable.order_id, amount: Math.round(reusable.amount * 100), currency: reusable.currency } };
   }
 
-  const amountPaise = Math.round(series.price * 100);
+  const amountPaise = Math.round(finalPrice * 100);
   const receipt = `nlu_${Date.now().toString(36)}_${user.id.slice(0, 8)}`;
   const order = await razorpay.createOrder({
     amountPaise,
-    currency: series.currency,
+    currency: course.currency,
     receipt,
-    notes: { user_id: user.id, test_series_id: series.id },
+    notes: { user_id: user.id, course_id: course.id, promo_code: usedPromo ?? '' },
   });
   if (order.amount !== amountPaise) throw new ApiError(502, 'UPSTREAM_ERROR', 'Payment provider returned an unexpected amount');
 
   const purchase = await queryOne<Purchase>(
-    `INSERT INTO purchases AS p (user_id, test_series_id, amount, currency, provider, order_id, status)
-     VALUES ($1,$2,$3,$4,'RAZORPAY',$5,'PENDING') RETURNING ${PURCHASE_COLUMNS}`,
-    [user.id, series.id, series.price, series.currency, order.id],
+    `INSERT INTO purchases AS p (user_id, course_id, amount, currency, provider, order_id, promo_code_used, status)
+     VALUES ($1,$2,$3,$4,'RAZORPAY',$5,$6,'PENDING') RETURNING ${PURCHASE_COLUMNS}`,
+    [user.id, course.id, finalPrice, course.currency, order.id, usedPromo],
   );
-  return { ...base, purchase: purchase!, razorpay: { keyId, orderId: order.id, amount: amountPaise, currency: series.currency } };
+  return { ...base, purchase: purchase!, razorpay: { keyId, orderId: order.id, amount: amountPaise, currency: course.currency } };
 }
 
 /**
@@ -159,7 +171,6 @@ export async function handleWebhook(eventId: string, body: WebhookPayload) {
       return { duplicate: false, handled: true };
     }
     if (body.event === 'refund.processed' && refund) {
-      // A full refund revokes access; the original amount stays on the record for reporting.
       await query(`UPDATE purchases SET status = 'REFUNDED' WHERE payment_id = $1 AND status = 'SUCCESS'`, [refund.payment_id], db);
       return { duplicate: false, handled: true };
     }
@@ -169,7 +180,8 @@ export async function handleWebhook(eventId: string, body: WebhookPayload) {
 
 export async function getForUser(user: User, purchaseId: string) {
   const row = await queryOne<Purchase>(
-    `SELECT ${PURCHASE_COLUMNS}, ts.title AS test_title FROM purchases p JOIN test_series ts ON ts.id = p.test_series_id
+    `SELECT ${PURCHASE_COLUMNS}, c.title AS course_title FROM purchases p
+      LEFT JOIN courses c ON c.id = p.course_id
       WHERE p.id = $1`,
     [purchaseId],
   );
@@ -180,7 +192,8 @@ export async function getForUser(user: User, purchaseId: string) {
 
 export async function listForUser(userId: string) {
   return query<Purchase>(
-    `SELECT ${PURCHASE_COLUMNS}, ts.title AS test_title FROM purchases p JOIN test_series ts ON ts.id = p.test_series_id
+    `SELECT ${PURCHASE_COLUMNS}, c.title AS course_title FROM purchases p
+      LEFT JOIN courses c ON c.id = p.course_id
       WHERE p.user_id = $1 ORDER BY p.created_at DESC`,
     [userId],
   );

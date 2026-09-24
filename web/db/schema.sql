@@ -52,6 +52,7 @@ $$ LANGUAGE plpgsql;
 CREATE TABLE IF NOT EXISTS users (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   google_id      TEXT UNIQUE,
+  password_hash  TEXT,
   name           TEXT NOT NULL,
   email          CITEXT NOT NULL UNIQUE,
   phone          TEXT,
