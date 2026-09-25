@@ -37,7 +37,7 @@ export default async function AdminCourseDetailPage({
             {course.title} <StatusBadge status={course.status} />
           </span>
         }
-        description={`₹${course.price}${course.discount_price ? ` (₹${course.discount_price} with ${course.promo_code})` : ''} · created ${formatDateTime(course.created_at)}`}
+        description={`${course.is_free || Number(course.price) === 0 ? 'FREE Course' : `₹${course.price}${course.discount_price ? ` (₹${course.discount_price} with ${course.promo_code})` : ''}`} · created ${formatDateTime(course.created_at)}`}
         actions={
           <>
             <ButtonLink href={`/admin/courses/${id}/edit`} variant="secondary" size="sm">
@@ -75,7 +75,7 @@ export default async function AdminCourseDetailPage({
                 }}
               />
             )}
-            {course.purchase_count === 0 && (
+            {course.status !== 'DELETED' && (
               <ActionButton
                 endpoint={base}
                 method="DELETE"
@@ -83,10 +83,10 @@ export default async function AdminCourseDetailPage({
                 variant="danger"
                 redirectTo="/admin/courses"
                 confirm={{
-                  title: 'Delete course permanently?',
-                  message: 'This course will be permanently removed. Any associated test series will be unlinked.',
+                  title: 'Delete this course?',
+                  message: 'This course will be removed from the student portal and new purchases will be disabled. All test series assigned to this course will also be removed from student access. Historical purchases, attempts, questions and results will be preserved.',
                   danger: true,
-                  confirmLabel: 'Delete',
+                  confirmLabel: 'Delete Course',
                 }}
               />
             )}
@@ -100,9 +100,9 @@ export default async function AdminCourseDetailPage({
         <Stat label="Students Enrolled" value={course.purchase_count} />
         <Stat label="Total Revenue" value={formatMoney(course.revenue, course.currency)} />
         <Stat
-          label="Active Promo Code"
-          value={course.promo_code ?? 'None'}
-          hint={course.discount_price ? `₹${course.price} → ₹${course.discount_price}` : undefined}
+          label="Course Type"
+          value={course.is_free || Number(course.price) === 0 ? 'FREE' : 'PAID'}
+          hint={course.is_free || Number(course.price) === 0 ? 'Instant student access' : (course.discount_price ? `₹${course.price} → ₹${course.discount_price}` : undefined)}
         />
       </div>
 
@@ -189,25 +189,65 @@ export default async function AdminCourseDetailPage({
 
         {/* Sidebar Column: Course Metadata & Audit Trail */}
         <div className="space-y-6">
+          {/* Course Thumbnail Preview Card */}
+          <Card className="p-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-sans text-sm font-semibold text-ink">Course Thumbnail</h3>
+              <Link href={`/admin/courses/${id}/edit`} className="text-xs font-semibold text-brand-600 hover:underline">
+                Edit Image
+              </Link>
+            </div>
+            {course.thumbnail_url ? (
+              <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-line bg-surface-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={course.thumbnail_url} alt={course.title} className="size-full object-cover" />
+              </div>
+            ) : (
+              <div className="flex aspect-video w-full flex-col items-center justify-center rounded-lg border border-dashed border-line bg-surface-2/50 text-muted p-4 text-center">
+                <svg className="size-8 text-muted/60 mb-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+                <p className="text-xs text-muted">No thumbnail uploaded</p>
+                <Link href={`/admin/courses/${id}/edit`} className="mt-2 text-xs font-semibold text-brand-600 hover:underline">
+                  Upload Thumbnail
+                </Link>
+              </div>
+            )}
+          </Card>
+
           <Card className="p-6 space-y-4">
             <h3 className="font-sans text-sm font-semibold text-ink">Course Summary</h3>
             <dl className="divide-y divide-line text-sm">
               <div className="flex justify-between py-2.5">
+                <dt className="text-muted">Pricing Type</dt>
+                <dd className="font-semibold text-ink">
+                  {course.is_free || Number(course.price) === 0 ? 'FREE' : 'PAID'}
+                </dd>
+              </div>
+              <div className="flex justify-between py-2.5">
                 <dt className="text-muted">Standard Price</dt>
-                <dd className="font-semibold text-ink">₹{course.price}</dd>
-              </div>
-              <div className="flex justify-between py-2.5">
-                <dt className="text-muted">Discount Price</dt>
-                <dd className="font-semibold text-ok">
-                  {course.discount_price ? `₹${course.discount_price}` : 'None'}
+                <dd className="font-semibold text-ink">
+                  {course.is_free || Number(course.price) === 0 ? 'FREE (₹0)' : `₹${course.price}`}
                 </dd>
               </div>
-              <div className="flex justify-between py-2.5">
-                <dt className="text-muted">Promo Code</dt>
-                <dd className="font-mono font-semibold text-brand-700">
-                  {course.promo_code ?? 'None'}
-                </dd>
-              </div>
+              {!(course.is_free || Number(course.price) === 0) && (
+                <>
+                  <div className="flex justify-between py-2.5">
+                    <dt className="text-muted">Discount Price</dt>
+                    <dd className="font-semibold text-ok">
+                      {course.discount_price ? `₹${course.discount_price}` : 'None'}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between py-2.5">
+                    <dt className="text-muted">Promo Code</dt>
+                    <dd className="font-mono font-semibold text-brand-700">
+                      {course.promo_code ?? 'None'}
+                    </dd>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between py-2.5">
                 <dt className="text-muted">Total Test Series</dt>
                 <dd className="font-semibold text-ink">{course.test_series_count}</dd>

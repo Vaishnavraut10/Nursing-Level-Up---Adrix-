@@ -14,7 +14,7 @@ export default async function AdminCoursesPage({
   searchParams: Promise<{ q?: string; status?: string; page?: string }>;
 }) {
   const sp = await searchParams;
-  const status = ['DRAFT', 'PUBLISHED', 'ARCHIVED'].includes(sp.status ?? '')
+  const status = ['DRAFT', 'PUBLISHED', 'ARCHIVED', 'DELETED'].includes(sp.status ?? '')
     ? (sp.status as CourseStatus)
     : undefined;
 
@@ -45,6 +45,7 @@ export default async function AdminCoursesPage({
           <option value="DRAFT">Draft</option>
           <option value="PUBLISHED">Published</option>
           <option value="ARCHIVED">Archived</option>
+          <option value="DELETED">Deleted</option>
         </select>
       </FilterBar>
       <Table>
@@ -64,16 +65,44 @@ export default async function AdminCoursesPage({
           {data.items.map((c) => (
             <tr key={c.id} className="hover:bg-sunken/40">
               <Td>
-                <Link href={`/admin/courses/${c.id}`} className="font-semibold text-ink hover:text-brand-600">
-                  {c.title}
-                </Link>
-                {c.description && (
-                  <p className="mt-0.5 line-clamp-1 text-xs text-muted max-w-md">{c.description}</p>
+                <div className="flex items-center gap-3">
+                  {c.thumbnail_url ? (
+                    <div className="relative size-12 shrink-0 overflow-hidden rounded-lg border border-line bg-surface-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={c.thumbnail_url} alt={c.title} className="size-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-2 text-muted">
+                      <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                        <circle cx="8.5" cy="8.5" r="1.5" />
+                        <polyline points="21 15 16 10 5 21" />
+                      </svg>
+                    </div>
+                  )}
+                  <div>
+                    <Link href={`/admin/courses/${c.id}`} className="font-semibold text-ink hover:text-brand-600">
+                      {c.title}
+                    </Link>
+                    {c.description && (
+                      <p className="mt-0.5 line-clamp-1 text-xs text-muted max-w-md">{c.description}</p>
+                    )}
+                  </div>
+                </div>
+              </Td>
+              <Td className="font-medium text-ink">
+                {c.is_free || Number(c.price) === 0 ? (
+                  <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                    FREE
+                  </span>
+                ) : (
+                  `₹${c.price}`
                 )}
               </Td>
-              <Td className="font-medium text-ink">₹{c.price}</Td>
               <Td>
-                {c.promo_code ? (
+                {c.is_free || Number(c.price) === 0 ? (
+                  <span className="text-xs text-muted">Free Course</span>
+                ) : c.promo_code ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700 ring-1 ring-inset ring-brand-200/60">
                     {c.promo_code} → ₹{c.discount_price ?? c.price}
                   </span>

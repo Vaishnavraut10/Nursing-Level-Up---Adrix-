@@ -21,7 +21,13 @@ export interface CheckoutOrder {
  */
 export async function createCourseCheckout(user: User, courseId: string, promoCode?: string): Promise<CheckoutOrder> {
   const course = await courseService.getById(courseId);
-  if (!course || course.status !== 'PUBLISHED') throw Errors.notFound('Course');
+  if (!course) throw Errors.notFound('Course');
+  if (course.status !== 'PUBLISHED') {
+    throw new ApiError(400, 'COURSE_UNAVAILABLE', 'This course is no longer available for purchase.');
+  }
+  if (course.is_free || Number(course.price) === 0) {
+    throw Errors.badRequest('This course is free. No payment required.');
+  }
 
   // Check if already purchased
   const alreadyOwned = await courseService.hasCoursePurchase(user.id, courseId);
@@ -31,7 +37,7 @@ export async function createCourseCheckout(user: User, courseId: string, promoCo
   let finalPrice = course.price;
   let usedPromo: string | null = null;
   if (promoCode) {
-    const discounted = courseService.validatePromoCode(course, promoCode);
+    const discounted = await courseService.validatePromoCode(course, promoCode);
     if (discounted !== null) {
       finalPrice = discounted;
       usedPromo = promoCode.trim().toUpperCase();
@@ -197,4 +203,32 @@ export async function listForUser(userId: string) {
       WHERE p.user_id = $1 ORDER BY p.created_at DESC`,
     [userId],
   );
+}
+
+export async function enrollFreeCourse(user: User, courseId: string): Promise<Purchase> {
+  const course = await courseService.getById(courseId);
+  if (!course) throw Errors.notFound('Course');
+  if (course.status !== 'PUBLISHED') {
+    throw new ApiError(400, 'COURSE_UNAVAILABLE', 'This course is no longer available.');
+  }
+  if (!course.is_free && Number(course.price) > 0) {
+    throw Errors.badRequest('This course requires payment.');
+  }
+
+  const existing = await queryOne<Purchase>(
+    `SELECT ${PURCHASE_COLUMNS} FROM purchases p WHERE p.user_id = $1 AND p.course_id = $2 AND p.status = 'SUCCESS'`,
+    [user.id, courseId],
+  );
+  if (existing) {
+    return existing;
+  }
+
+  const orderId = `free_${Date.now().toString(36)}_${user.id.slice(0, 8)}`;
+  const purchase = await queryOne<Purchase>(
+    `INSERT INTO purchases (user_id, course_id, amount, currency, provider, order_id, payment_id, promo_code_used, status)
+     VALUES ($1, $2, 0, $3, 'FREE', $4, $4, NULL, 'SUCCESS')
+     RETURNING ${PURCHASE_COLUMNS}`,
+    [user.id, course.id, course.currency || 'INR', orderId],
+  );
+  return purchase!;
 }

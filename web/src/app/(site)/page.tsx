@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ButtonLink, Container, EmptyState } from "@/components/ui";
 import { ScrollReveal } from "@/components/ui/ScrollReveal";
 import { TestSeriesCard } from "@/components/test-series/TestSeriesCard";
@@ -89,7 +90,9 @@ export default async function LandingPage() {
                 </div>
                 <div className="self-stretch w-px bg-line" aria-hidden="true" />
                 <div className="animate-fade-up stagger-3 flex-1 pl-6">
-                  <dd className="font-serif text-4xl font-semibold text-ink">&#x20B9;299</dd>
+                  <dd className="font-serif text-4xl font-semibold text-ink">
+                    {course && (course.is_free || Number(course.price) === 0) ? 'FREE' : '₹299'}
+                  </dd>
                   <dt className="mt-1 text-xs font-medium uppercase tracking-[0.1em] text-muted">Course pass</dt>
                 </div>
               </dl>
@@ -177,7 +180,7 @@ export default async function LandingPage() {
                       <span className="size-1.5 rounded-full bg-amber-500" /> Daily 5 PM IST Unlocks
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <span className="size-1.5 rounded-full bg-brand-500" /> ₹{course.price} ({course.promo_code ? `₹${course.discount_price} with code ${course.promo_code}` : 'Full Access'})
+                      <span className="size-1.5 rounded-full bg-brand-500" /> {course.is_free || Number(course.price) === 0 ? 'FREE (Full Access)' : `₹${course.price} (Full Access)`}
                     </span>
                   </div>
                 </div>
@@ -241,8 +244,14 @@ export default async function LandingPage() {
                 <div className="flex flex-col items-center gap-6 px-10 py-12 text-center sm:px-14">
                   {/* Avatar – centered & big */}
                   <div className="relative">
-                    <div className="flex size-36 items-center justify-center rounded-3xl bg-white/10 font-serif text-5xl font-semibold text-white ring-2 ring-white/20 backdrop-blur-sm">
-                      DT
+                    <div className="size-36 overflow-hidden rounded-3xl ring-2 ring-white/20">
+                      <Image
+                        src="/images/creator1.jpg"
+                        alt="Dhruva Thakre"
+                        width={144}
+                        height={144}
+                        className="size-full object-cover object-top"
+                      />
                     </div>
                     <div className="absolute -bottom-2 -right-2 flex size-9 items-center justify-center rounded-full bg-brand-500 ring-2 ring-brand-700">
                       <svg className="size-4 text-white" viewBox="0 0 12 12" fill="currentColor">
@@ -279,8 +288,14 @@ export default async function LandingPage() {
                 <div className="flex flex-col items-center gap-6 px-10 py-12 text-center sm:px-14">
                   {/* Avatar – centered & big */}
                   <div className="relative">
-                    <div className="flex size-36 items-center justify-center rounded-3xl bg-white/10 font-serif text-5xl font-semibold text-white ring-2 ring-white/20 backdrop-blur-sm">
-                      AB
+                    <div className="size-36 overflow-hidden rounded-3xl ring-2 ring-white/20">
+                      <Image
+                        src="/images/creator2.jpg"
+                        alt="Aditya Bhajipale"
+                        width={144}
+                        height={144}
+                        className="size-full object-cover object-top"
+                      />
                     </div>
                     <div className="absolute -bottom-2 -right-2 flex size-9 items-center justify-center rounded-full bg-brand-500 ring-2 ring-brand-700">
                       <svg className="size-4 text-white" viewBox="0 0 12 12" fill="currentColor">
@@ -291,11 +306,11 @@ export default async function LandingPage() {
                   {/* Info below avatar */}
                   <div>
                     <h2 className="font-serif text-3xl font-semibold leading-tight text-white">Aditya Bhajipale</h2>
-                    <p className="mt-2 text-base font-medium text-brand-100/80">Nursing Officer, GMCH Nagpur</p>
+                    <p className="mt-2 text-base font-medium text-brand-100/80">Nursing Officer, Pooja Nursing Bhandara</p>
                     <div className="mt-1.5 flex items-center justify-center gap-2 text-sm text-brand-200/60">
                       <span>B.Sc. Nursing</span>
                       <span className="opacity-40">&middot;</span>
-                      <span>Batch 2018, GMC Nagpur</span>
+                      <span>Batch 2016</span>
                     </div>
                   </div>
                   {/* Quote */}

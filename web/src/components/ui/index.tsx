@@ -112,7 +112,7 @@ export function Badge({ tone = 'neutral', children, className }: { tone?: Tone; 
 }
 
 const STATUS_TONES: Record<string, Tone> = {
-  PUBLISHED: 'ok', DRAFT: 'warn', ARCHIVED: 'neutral',
+  PUBLISHED: 'ok', DRAFT: 'warn', ARCHIVED: 'neutral', DELETED: 'bad',
   SUCCESS: 'ok', PENDING: 'warn', FAILED: 'bad', CANCELLED: 'neutral', REFUNDED: 'accent',
   COMPLETED: 'ok', IN_PROGRESS: 'brand', ABANDONED: 'neutral',
   APPROVED: 'ok', PENDING_REVIEW: 'warn', REJECTED: 'bad',

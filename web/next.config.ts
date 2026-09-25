@@ -14,6 +14,14 @@ const nextConfig: NextConfig = {
   // Node-only packages (native bindings, workers, large parsers) are loaded at runtime, not bundled.
   serverExternalPackages: ['pg', 'tesseract.js', 'pdf-parse', 'mammoth', '@napi-rs/canvas'],
   poweredByHeader: false,
+  images: {
+    localPatterns: [
+      {
+        pathname: '/images/**',
+        search: '',
+      },
+    ],
+  },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },

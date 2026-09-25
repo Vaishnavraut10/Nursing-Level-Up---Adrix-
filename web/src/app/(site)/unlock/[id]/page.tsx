@@ -99,7 +99,6 @@ export default async function UnlockPage({ params }: { params: Promise<{ id: str
             courseId={course.id}
             basePrice={Number(course.price)}
             discountPrice={course.discount_price ? Number(course.discount_price) : undefined}
-            promoCode={course.promo_code}
             configured={razorpayConfigured()}
             testSeriesId={series.id}
             courseTitle={course.title}

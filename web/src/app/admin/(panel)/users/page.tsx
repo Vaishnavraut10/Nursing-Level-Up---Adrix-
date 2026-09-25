@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { StatusBadge, Table, Td, Th, Badge } from '@/components/ui';
 import { AdminHeader, FilterBar, Pagination, filterInput, parsePage } from '@/components/admin/shared';
+import { DeleteUserButton } from '@/components/admin/DeleteUserButton';
 import { listUsers } from '@/lib/server/services/adminService';
 import { formatDate, formatDateTime, formatPhone } from '@/lib/format';
 
@@ -36,7 +37,17 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
       </FilterBar>
       <Table>
         <thead>
-          <tr><Th>Name</Th><Th>Phone</Th><Th>Role</Th><Th>Registered</Th><Th>Last activity</Th><Th className="text-right">Attempts</Th><Th className="text-right">Purchases</Th><Th>Status</Th></tr>
+          <tr>
+            <Th>Name</Th>
+            <Th>Phone</Th>
+            <Th>Role</Th>
+            <Th>Registered</Th>
+            <Th>Last activity</Th>
+            <Th className="text-right">Attempts</Th>
+            <Th className="text-right">Purchases</Th>
+            <Th>Status</Th>
+            <Th className="text-right">Actions</Th>
+          </tr>
         </thead>
         <tbody>
           {data.items.map((u) => (
@@ -52,9 +63,16 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
               <Td className="text-right tabular-nums">{u.attempt_count}</Td>
               <Td className="text-right tabular-nums">{u.purchase_count}</Td>
               <Td><StatusBadge status={u.status} /></Td>
+              <Td className="whitespace-nowrap text-right">
+                {u.status === 'SUSPENDED' && u.role === 'STUDENT' ? (
+                  <DeleteUserButton userId={u.id} userName={u.name} userEmail={u.email} />
+                ) : (
+                  <span className="text-muted">—</span>
+                )}
+              </Td>
             </tr>
           ))}
-          {data.items.length === 0 && <tr><Td colSpan={8} className="py-10 text-center text-muted">No users match these filters.</Td></tr>}
+          {data.items.length === 0 && <tr><Td colSpan={9} className="py-10 text-center text-muted">No users match these filters.</Td></tr>}
         </tbody>
       </Table>
       <Pagination base="/admin/users" params={sp} page={data.page} totalPages={data.totalPages} total={data.total} />

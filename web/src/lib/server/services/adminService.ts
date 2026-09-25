@@ -1,6 +1,6 @@
 import 'server-only';
-import { query, queryOne } from '../db';
-import { Errors } from '../../errors';
+import { query, queryOne, transaction } from '../db';
+import { ApiError, Errors } from '../../errors';
 import type { Attempt, Paginated, Purchase, User, UserStatus } from '@/types';
 import { logAudit } from './auditService';
 import { listForUser as attemptsForUser, progressForUser } from './attemptService';
@@ -59,7 +59,7 @@ export async function listUsers(opts: {
   status?: UserStatus;
   profile?: 'complete' | 'incomplete';
 }): Promise<Paginated<AdminUserRow>> {
-  const where: string[] = [];
+  const where: string[] = ["u.email::text NOT LIKE 'deleted_%@deleted.local'"];
   const params: unknown[] = [];
   if (opts.q) {
     params.push(`%${opts.q}%`);
@@ -99,7 +99,9 @@ export async function userDetail(id: string) {
     `SELECT id, google_id, name, email, phone, role, status, created_at, updated_at, last_login_at FROM users WHERE id = $1`,
     [id],
   );
-  if (!user) throw Errors.notFound('User');
+  if (!user || user.email.startsWith('deleted_') && user.email.endsWith('@deleted.local')) {
+    throw Errors.notFound('User');
+  }
   const [purchases, attempts, progress] = await Promise.all([
     purchasesForUser(id),
     attemptsForUser(id, 100),
@@ -114,6 +116,66 @@ export async function setUserStatus(admin: User, id: string, status: UserStatus)
   if (!row) throw Errors.notFound('User');
   await logAudit(admin.id, 'USER_STATUS_CHANGED', 'user', id, { status });
   return row;
+}
+
+export async function deleteUser(admin: User, id: string) {
+  if (admin.id === id) {
+    throw new ApiError(400, 'BAD_REQUEST', 'You cannot delete your own admin account.');
+  }
+
+  return transaction(async (db) => {
+    const targetUser = await queryOne<User>(
+      `SELECT id, name, email, role, status FROM users WHERE id = $1 FOR UPDATE`,
+      [id],
+      db,
+    );
+    if (!targetUser || (targetUser.email.startsWith('deleted_') && targetUser.email.endsWith('@deleted.local'))) {
+      throw Errors.notFound('User');
+    }
+    if (targetUser.role === 'ADMIN') {
+      throw new ApiError(400, 'BAD_REQUEST', 'Admin accounts cannot be deleted.');
+    }
+    if (targetUser.status !== 'SUSPENDED') {
+      throw new ApiError(400, 'BAD_REQUEST', 'Only suspended accounts can be deleted.');
+    }
+
+    // Clear attempt answers and attempts
+    await query(`DELETE FROM user_answers WHERE attempt_id IN (SELECT id FROM attempts WHERE user_id = $1)`, [id], db);
+    await query(`DELETE FROM attempts WHERE user_id = $1`, [id], db);
+
+    // Check if user has financial purchase records
+    const hasPurchases = await queryOne<{ count: number }>(
+      `SELECT COUNT(*)::int AS count FROM purchases WHERE user_id = $1`,
+      [id],
+      db,
+    );
+
+    if ((hasPurchases?.count ?? 0) > 0) {
+      // Anonymize user identity to preserve payment records while destroying all login credentials
+      await query(
+        `UPDATE users
+            SET name = 'Deleted Student',
+                email = $2,
+                google_id = NULL,
+                password_hash = NULL,
+                phone = NULL,
+                updated_at = NOW()
+          WHERE id = $1`,
+        [id, `deleted_${id.replace(/-/g, '')}@deleted.local`],
+        db,
+      );
+    } else {
+      // Safely hard delete from users table
+      await query(`DELETE FROM users WHERE id = $1`, [id], db);
+    }
+
+    await logAudit(admin.id, 'USER_DELETED', 'user', id, {
+      deleted_user_email: targetUser.email,
+      deleted_user_name: targetUser.name,
+    }, db);
+
+    return { deleted: true };
+  });
 }
 
 export async function listPurchases(opts: {

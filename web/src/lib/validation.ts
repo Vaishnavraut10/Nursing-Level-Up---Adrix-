@@ -61,15 +61,20 @@ export type TestSeriesInput = z.infer<typeof testSeriesInputSchema>;
 
 export const courseStatusSchema = z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']);
 
-export const courseInputSchema = z.object({
-  title: z.string().trim().min(1, 'Title is required').max(200, 'Title must be at most 200 characters'),
-  description: optionalText(5000),
-  price: z.coerce.number().min(0, 'Price must be 0 or more').max(100000, 'Price is too high').default(299),
-  discount_price: z.coerce.number().min(0).max(100000).optional().nullable(),
-  promo_code: z.string().trim().max(50).optional().nullable().transform((v) => (v ? v.toUpperCase() : null)),
-  currency: z.literal('INR').default('INR'),
-  status: courseStatusSchema.default('DRAFT'),
-});
+export const courseInputSchema = z
+  .object({
+    title: z.string().trim().min(1, 'Title is required').max(200, 'Title must be at most 200 characters'),
+    description: optionalText(5000),
+    is_free: z.boolean().default(false),
+    price: z.coerce.number().min(0, 'Price must be 0 or more').max(100000, 'Price is too high').default(299),
+    discount_price: z.coerce.number().min(0).max(100000).optional().nullable(),
+    promo_code: z.string().trim().max(50).optional().nullable().transform((v) => (v ? v.toUpperCase() : null)),
+    currency: z.literal('INR').default('INR'),
+    status: courseStatusSchema.default('DRAFT'),
+  })
+  .refine((v) => !v.is_free || v.price === 0, { message: 'Free courses must have price 0', path: ['price'] })
+  .refine((v) => !v.is_free || !v.discount_price, { message: 'Free courses cannot have a discount price', path: ['discount_price'] })
+  .refine((v) => !v.is_free || !v.promo_code, { message: 'Free courses cannot have a promo code', path: ['promo_code'] });
 
 export type CourseInput = z.infer<typeof courseInputSchema>;
 

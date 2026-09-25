@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Card, Stat, StatusBadge, Table, Td, Th } from '@/components/ui';
 import { AdminHeader } from '@/components/admin/shared';
 import { ActionButton } from '@/components/admin/ActionButton';
+import { DeleteUserButton } from '@/components/admin/DeleteUserButton';
 import { userDetail } from '@/lib/server/services/adminService';
 import { getCurrentUser } from '@/lib/server/session';
 import { formatDate, formatDateTime, formatDuration, formatMoney, formatPercent, formatPhone } from '@/lib/format';
@@ -30,7 +31,12 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
               <ActionButton endpoint={`/api/admin/users/${user.id}`} method="PATCH" body={{ status: 'SUSPENDED' }} label="Suspend account" variant="danger"
                 confirm={{ title: 'Suspend this account?', message: 'The user is signed out on their next request and cannot sign in. Their purchases and results are kept.', danger: true, confirmLabel: 'Suspend' }} />
             ) : (
-              <ActionButton endpoint={`/api/admin/users/${user.id}`} method="PATCH" body={{ status: 'ACTIVE' }} label="Reactivate account" variant="primary" />
+              <div className="flex items-center gap-2">
+                <ActionButton endpoint={`/api/admin/users/${user.id}`} method="PATCH" body={{ status: 'ACTIVE' }} label="Reactivate account" variant="primary" />
+                {user.role === 'STUDENT' && (
+                  <DeleteUserButton userId={user.id} userName={user.name} userEmail={user.email} redirectTo="/admin/users" />
+                )}
+              </div>
             )
           )
         }

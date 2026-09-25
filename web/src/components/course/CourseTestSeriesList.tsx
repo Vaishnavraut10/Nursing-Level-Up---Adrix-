@@ -165,12 +165,17 @@ export function CourseTestSeriesList({ series, hasCourseAccess }: CourseTestSeri
                 }`}
               >
                 <div>
-                  {/* Top Row: Release Day + Status Pill */}
+                  {/* Top Row: Test Index + Release Day + Status Pill */}
                   <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-paper px-2.5 py-0.5 text-[11px] font-semibold text-muted ring-1 ring-line/70">
-                      <span className="size-1.5 rounded-full bg-brand-500" />
-                      {dayLabel}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="shrink-0 text-xs font-bold font-mono text-ink bg-paper px-2 py-0.5 rounded-lg border border-line/70">
+                        {idx < 9 ? `0${idx + 1}` : `${idx + 1}`}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-paper px-2.5 py-0.5 text-[11px] font-semibold text-muted ring-1 ring-line/70">
+                        <span className="size-1.5 rounded-full bg-brand-500" />
+                        {dayLabel}
+                      </span>
+                    </div>
 
                     {isUnlocked ? (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-ok-50 px-2.5 py-0.5 text-[11px] font-semibold text-ok ring-1 ring-inset ring-ok/25">
@@ -204,9 +209,23 @@ export function CourseTestSeriesList({ series, hasCourseAccess }: CourseTestSeri
 
                   {/* Title & Description */}
                   <h3 className="mt-3 font-serif text-lg font-semibold leading-snug text-ink transition-colors group-hover:text-brand-700">
-                    <Link href={targetUrl} title={canSolve ? 'Click to solve test' : 'Enroll in course to unlock'}>
-                      {ts.title}
-                    </Link>
+                    {canSolve ? (
+                      <Link href={`/tests/${ts.id}`} title="Click to solve test">
+                        {ts.title}
+                      </Link>
+                    ) : (
+                      <a
+                        href="#course-payment"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const el = document.getElementById('course-payment') || document.getElementById('course-access') || document.getElementById('enrollment');
+                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }}
+                        title="Enroll in course to unlock"
+                      >
+                        {ts.title}
+                      </a>
+                    )}
                   </h3>
                   {ts.description && (
                     <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted">
@@ -260,10 +279,15 @@ export function CourseTestSeriesList({ series, hasCourseAccess }: CourseTestSeri
                     </ButtonLink>
                   ) : (
                     <a
-                      href="#enrollment"
-                      className="inline-flex items-center gap-1 rounded-xl bg-brand-50 px-3.5 py-1.5 text-xs font-semibold text-brand-700 ring-1 ring-inset ring-brand-200/70 hover:bg-brand-100 transition-colors"
+                      href="#course-payment"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const el = document.getElementById('course-payment') || document.getElementById('course-access') || document.getElementById('enrollment');
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }}
+                      className="inline-flex items-center gap-1 rounded-xl bg-brand-50 px-3.5 py-1.5 text-xs font-semibold text-brand-700 ring-1 ring-inset ring-brand-200/70 hover:bg-brand-100 transition-colors cursor-pointer"
                     >
-                      Enroll to Solve →
+                      Solve Test →
                     </a>
                   )}
                 </div>

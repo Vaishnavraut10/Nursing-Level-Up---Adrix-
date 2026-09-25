@@ -97,11 +97,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             : user?.id
               ? await userService.findById(user.id)
               : null;
-        if (!dbUser) return null;
-        token.uid = dbUser.id;
-        token.role = dbUser.role;
-        token.name = dbUser.name;
-        token.email = dbUser.email;
+        if (dbUser) {
+          token.uid = dbUser.id;
+          token.role = dbUser.role;
+          token.name = dbUser.name;
+          token.email = dbUser.email;
+        }
+      }
+      if (!token.uid && user?.id) {
+        token.uid = user.id;
+      }
+      if (!token.uid && token.sub) {
+        token.uid = token.sub;
       }
       return token;
     },

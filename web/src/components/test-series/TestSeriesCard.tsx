@@ -137,7 +137,19 @@ export function FreeSeriesCard({ series }: { series: PublicTestSeries }) {
       className="group relative flex h-full flex-col overflow-hidden rounded-[1.25rem] border border-line/75 bg-surface shadow-xs transition-all duration-250 hover:-translate-y-1 hover:border-brand-300/80 hover:shadow-[0_14px_38px_rgba(0,0,0,0.07),0_0_0_1px_rgba(31,122,115,0.12)]"
     >
       {/* Top teal accent stripe */}
-      <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent via-brand-500/60 to-transparent" aria-hidden="true" />
+      <div className="absolute inset-x-0 top-0 h-[3px] z-10 bg-gradient-to-r from-transparent via-brand-500/60 to-transparent" aria-hidden="true" />
+
+      {/* Course Thumbnail Image (if available) */}
+      {series.thumbnail_url && (
+        <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface-2 border-b border-line/60">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={series.thumbnail_url}
+            alt={series.title}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        </div>
+      )}
 
       <div className="flex flex-1 flex-col p-6 sm:p-7">
         {/* Header row: Subject Icon + Free badge */}
@@ -217,14 +229,26 @@ export function PaidSeriesCard({ series }: { series: PublicTestSeries }) {
       className="group relative flex h-full flex-col overflow-hidden rounded-[1.25rem] border border-line-strong/60 bg-surface shadow-xs transition-all duration-250 hover:-translate-y-1 hover:border-amber-300/80 hover:shadow-[0_14px_38px_rgba(0,0,0,0.08),0_0_0_1px_rgba(180,83,42,0.12)]"
     >
       {/* Subtle premium gold top accent stripe */}
-      <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent via-amber-500/60 to-transparent" aria-hidden="true" />
+      <div className="absolute inset-x-0 top-0 h-[3px] z-10 bg-gradient-to-r from-transparent via-amber-500/60 to-transparent" aria-hidden="true" />
 
       {/* Subtle corner watermark */}
-      <div className="pointer-events-none absolute right-2 top-2 opacity-[0.035] text-ink" aria-hidden="true">
+      <div className="pointer-events-none absolute right-2 top-2 opacity-[0.035] text-ink z-10" aria-hidden="true">
         <svg className="size-20" viewBox="0 0 24 24" fill="currentColor">
           <path d="M19 10.5V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4.5l4 4v-11l-4 4Z" />
         </svg>
       </div>
+
+      {/* Course Thumbnail Image (if available) */}
+      {series.thumbnail_url && (
+        <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface-2 border-b border-line/60">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={series.thumbnail_url}
+            alt={series.title}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        </div>
+      )}
 
       <div className="flex flex-1 flex-col p-6 sm:p-7">
         {/* Header row: Subject Icon + Course Status */}

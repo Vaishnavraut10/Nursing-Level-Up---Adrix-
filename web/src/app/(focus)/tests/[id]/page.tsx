@@ -14,8 +14,14 @@ export default async function TestPage({ params }: { params: Promise<{ id: strin
   const user = await requireStudentPage(`/tests/${id}`);
   const series = await getPublished(id, user);
   if (!series) notFound();
-  // UX redirect only — POST /api/tests/:id/start re-checks access and returns 403 PURCHASE_REQUIRED.
-  if (!series.has_access) redirect(`/unlock/${id}`);
+  // Security redirect if not enrolled — send to course-payment section
+  if (!series.has_access) {
+    const courseId = series.course_id || series.resolved_course_id;
+    if (courseId) {
+      redirect(`/course?id=${courseId}#course-payment`);
+    }
+    redirect('/course#course-payment');
+  }
 
   return (
     <TestRunner

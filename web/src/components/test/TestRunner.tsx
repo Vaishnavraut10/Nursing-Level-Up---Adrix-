@@ -53,6 +53,12 @@ export function TestRunner({
   const [navOpen, setNavOpen] = useState(false);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'offline'>('idle');
 
+  // Anti-cheating states
+  const [violationActive, setViolationActive] = useState(false);
+  const [violationSeconds, setViolationSeconds] = useState(10);
+  const violationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const violationCountRef = useRef<number>(10);
+
   const clockOffset = useRef(0); // server_now - client_now, so the timer follows the server clock
   const dirty = useRef<Set<string>>(new Set());
   const submittedRef = useRef(false);
@@ -60,6 +66,78 @@ export function TestRunner({
   const questions = useMemo(() => data?.questions ?? [], [data]);
   const current = questions[index];
   const storageKey = data ? `nlu-attempt-${data.attempt.id}` : null;
+
+  // ---------------------------------------------------------------- anti-copy protection
+  useEffect(() => {
+    if (phase !== 'running') return;
+    const preventCopy = (e: Event) => {
+      e.preventDefault();
+    };
+    document.addEventListener('copy', preventCopy);
+    document.addEventListener('cut', preventCopy);
+    document.addEventListener('contextmenu', preventCopy);
+    document.addEventListener('selectstart', preventCopy);
+    return () => {
+      document.removeEventListener('copy', preventCopy);
+      document.removeEventListener('cut', preventCopy);
+      document.removeEventListener('contextmenu', preventCopy);
+      document.removeEventListener('selectstart', preventCopy);
+    };
+  }, [phase]);
+
+  // ---------------------------------------------------------------- anti-cheat tab-switch detection
+  useEffect(() => {
+    if (phase !== 'running' || submittedRef.current) return;
+
+    const startViolationCountdown = () => {
+      if (submittedRef.current) return;
+      setViolationActive(true);
+    };
+
+    const cancelViolationCountdown = () => {
+      if (violationTimerRef.current) {
+        clearInterval(violationTimerRef.current);
+        violationTimerRef.current = null;
+      }
+      setViolationActive(false);
+      setViolationSeconds(10);
+      violationCountRef.current = 10;
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        startViolationCountdown();
+      } else if (document.visibilityState === 'visible') {
+        cancelViolationCountdown();
+      }
+    };
+
+    const handleWindowBlur = () => {
+      if (document.visibilityState === 'hidden') {
+        startViolationCountdown();
+      }
+    };
+
+    const handleWindowFocus = () => {
+      if (document.visibilityState === 'visible') {
+        cancelViolationCountdown();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('focus', handleWindowFocus);
+      if (violationTimerRef.current) {
+        clearInterval(violationTimerRef.current);
+        violationTimerRef.current = null;
+      }
+    };
+  }, [phase]);
 
   // ---------------------------------------------------------------- start / resume
   async function begin() {
@@ -123,6 +201,40 @@ export function TestRunner({
     }
   }, [answers, data, router, testSeriesId]);
 
+  useEffect(() => {
+    if (!violationActive || phase !== 'running' || submittedRef.current) {
+      if (violationTimerRef.current) {
+        clearInterval(violationTimerRef.current);
+        violationTimerRef.current = null;
+      }
+      return;
+    }
+
+    violationCountRef.current = 10;
+    setViolationSeconds(10);
+
+    violationTimerRef.current = setInterval(() => {
+      violationCountRef.current -= 1;
+      setViolationSeconds(violationCountRef.current);
+
+      if (violationCountRef.current <= 0) {
+        if (violationTimerRef.current) {
+          clearInterval(violationTimerRef.current);
+          violationTimerRef.current = null;
+        }
+        setViolationActive(false);
+        submit(true);
+      }
+    }, 1000);
+
+    return () => {
+      if (violationTimerRef.current) {
+        clearInterval(violationTimerRef.current);
+        violationTimerRef.current = null;
+      }
+    };
+  }, [violationActive, phase, submit]);
+
   // ---------------------------------------------------------------- timer
   useEffect(() => {
     if (phase !== 'running' || !data) return;
@@ -185,7 +297,7 @@ export function TestRunner({
   }, [data]);
 
   useEffect(() => {
-    if (phase !== 'running' || !current || confirmOpen) return;
+    if (phase !== 'running' || !current || confirmOpen || violationActive) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
       const k = e.key.toUpperCase();
@@ -196,7 +308,7 @@ export function TestRunner({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [phase, current, index, confirmOpen, choose, goTo]);
+  }, [phase, current, index, confirmOpen, violationActive, choose, goTo]);
 
   const counts = useMemo(() => {
     const answered = questions.filter((q) => answers[q.id]).length;
@@ -237,7 +349,47 @@ export function TestRunner({
   const q = current;
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div
+      className="flex min-h-dvh flex-col select-none"
+      onContextMenu={(e) => e.preventDefault()}
+      onCopy={(e) => e.preventDefault()}
+      onCut={(e) => e.preventDefault()}
+      onDragStart={(e) => e.preventDefault()}
+    >
+      {/* Anti-Cheating Tab Switch Warning Modal */}
+      {violationActive && phase === 'running' && !submittedRef.current && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/75 backdrop-blur-sm p-4 animate-fade-in"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="cheat-warning-title"
+          aria-describedby="cheat-warning-desc"
+        >
+          <Card className="w-full max-w-md border-2 border-bad/40 p-6 text-center shadow-2xl">
+            <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-bad-50 text-2xl font-bold text-bad">
+              ⚠️
+            </div>
+            <h2 id="cheat-warning-title" className="mt-4 text-2xl font-bold text-ink">
+              Return to Test
+            </h2>
+            <p id="cheat-warning-desc" className="mt-2 text-sm text-ink-2">
+              You have left the test window. Please return to the test.
+            </p>
+            <div className="mt-6 rounded-xl border border-bad/30 bg-bad-50/80 py-4 px-6">
+              <div className="font-mono text-4xl font-black tabular-nums text-bad">
+                {violationSeconds}
+              </div>
+              <div className="mt-1 text-xs font-semibold uppercase tracking-wider text-bad">
+                seconds remaining
+              </div>
+            </div>
+            <p className="mt-4 text-xs text-muted">
+              If you do not return to this window before the timer expires, your test will be automatically submitted.
+            </p>
+          </Card>
+        </div>
+      )}
+
       {/* Top bar */}
       <header className="sticky top-0 z-20 border-b border-line bg-surface">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">

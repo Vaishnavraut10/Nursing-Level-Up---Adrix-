@@ -2,6 +2,8 @@ import { route, ok, parseId } from '@/lib/server/http';
 import { requireAdmin } from '@/lib/server/session';
 import * as svc from '@/lib/server/services/courseService';
 
+export const dynamic = 'force-dynamic';
+
 export const POST = route<{ id: string }>(async (_req, { params }) => {
   const admin = await requireAdmin();
   const id = parseId(params.id, 'Course');

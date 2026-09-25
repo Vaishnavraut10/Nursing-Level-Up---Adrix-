@@ -2,7 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { auth } from './auth';
-import { findById } from './services/userService';
+import { findById, findByEmail } from './services/userService';
 import { Errors, ApiError } from '../errors';
 import type { User } from '@/types';
 
@@ -14,8 +14,13 @@ import type { User } from '@/types';
 export const getCurrentUser = cache(async (): Promise<User | null> => {
   const session = await auth();
   const uid = session?.user?.id;
-  if (!uid) return null;
-  const user = await findById(uid);
+  let user: User | null = null;
+  if (uid) {
+    user = await findById(uid);
+  }
+  if (!user && session?.user?.email) {
+    user = await findByEmail(session.user.email);
+  }
   if (!user || user.status !== 'ACTIVE') return null;
   return user;
 });

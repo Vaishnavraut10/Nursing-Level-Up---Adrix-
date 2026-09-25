@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { route, ok, parseId, readJson } from '@/lib/server/http';
 import { requireAdmin } from '@/lib/server/session';
-import { userDetail, setUserStatus } from '@/lib/server/services/adminService';
+import { userDetail, setUserStatus, deleteUser } from '@/lib/server/services/adminService';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,4 +15,10 @@ export const PATCH = route<{ id: string }>(async (req, { params }) => {
   const admin = await requireAdmin();
   const body = await readJson(req, z.object({ status: z.enum(['ACTIVE', 'SUSPENDED']) }).strict());
   return ok(await setUserStatus(admin, parseId(params.id, 'User'), body.status));
+});
+
+export const DELETE = route<{ id: string }>(async (_req, { params }) => {
+  const admin = await requireAdmin();
+  const id = parseId(params.id, 'User');
+  return ok(await deleteUser(admin, id));
 });

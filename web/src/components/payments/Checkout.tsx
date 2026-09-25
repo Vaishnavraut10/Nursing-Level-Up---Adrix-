@@ -63,7 +63,6 @@ export function Checkout({
   courseId,
   basePrice = 299,
   discountPrice = 199,
-  promoCode,
   configured,
   testSeriesId,
   courseTitle = 'Nursing Level Up — Complete Course',
@@ -74,31 +73,48 @@ export function Checkout({
   const [orderId, setOrderId] = useState<string | null>(null);
 
   // Promo code state
-  const targetPromo = promoCode ? promoCode.toUpperCase() : 'NLUP199';
-  const discountAmount = Math.max(0, basePrice - (discountPrice ?? 199));
   const [promoInput, setPromoInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
+  const [appliedDiscountPrice, setAppliedDiscountPrice] = useState<number | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
+  const [validatingPromo, setValidatingPromo] = useState(false);
 
-  const isPromoApplied = Boolean(appliedPromo && appliedPromo.toUpperCase() === targetPromo);
-  const effectivePrice = isPromoApplied ? (discountPrice ?? 199) : basePrice;
+  const isPromoApplied = Boolean(appliedPromo && appliedDiscountPrice !== null);
+  const effectivePrice = isPromoApplied ? (appliedDiscountPrice ?? discountPrice) : basePrice;
 
-  function handleApplyPromo(e: React.FormEvent) {
+  async function handleApplyPromo(e: React.FormEvent) {
     e.preventDefault();
     setPromoError(null);
     const code = promoInput.trim().toUpperCase();
     if (!code) return;
 
-    if (code === targetPromo) {
-      setAppliedPromo(targetPromo);
-      setPromoInput('');
-    } else {
-      setPromoError(`Invalid promo code. Use ${targetPromo} for ₹${discountAmount} off.`);
+    setValidatingPromo(true);
+    try {
+      const res = await api<{ valid: boolean; discountPrice?: number; message?: string }>(
+        '/api/payments/validate-promo',
+        {
+          method: 'POST',
+          json: { courseId, promoCode: code },
+        },
+      );
+
+      if (res.valid && res.discountPrice != null) {
+        setAppliedPromo(code);
+        setAppliedDiscountPrice(res.discountPrice);
+        setPromoInput('');
+      } else {
+        setPromoError(res.message || 'Invalid promo code. Please check and try again.');
+      }
+    } catch (err) {
+      setPromoError('Invalid promo code. Please check and try again.');
+    } finally {
+      setValidatingPromo(false);
     }
   }
 
   function handleRemovePromo() {
     setAppliedPromo(null);
+    setAppliedDiscountPrice(null);
     setPromoError(null);
   }
 
@@ -223,7 +239,7 @@ export function Checkout({
               <svg className="size-4" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
               </svg>
-              Promo Code ({appliedPromo})
+              Promo Code Applied
             </span>
             <span className="font-semibold">-₹{basePrice - effectivePrice}</span>
           </div>
@@ -253,25 +269,20 @@ export function Checkout({
                 setPromoInput(e.target.value);
                 setPromoError(null);
               }}
-              placeholder={`Enter promo code (${targetPromo})`}
+              placeholder="Enter promo code"
               className="flex-1 rounded-xl border border-line bg-surface px-3.5 py-2 text-sm uppercase placeholder:normal-case placeholder:text-muted focus:border-brand-500 focus:outline-hidden focus:ring-2 focus:ring-brand-500/20"
             />
-            <Button type="submit" variant="secondary" size="md">
+            <Button type="submit" variant="secondary" size="md" loading={validatingPromo}>
               Apply
             </Button>
           </form>
           {promoError && (
             <p className="mt-1.5 text-xs text-rose-600">{promoError}</p>
           )}
-          {discountAmount > 0 && (
-            <p className="mt-1.5 text-xs text-muted">
-              Tip: Use code <strong className="font-semibold text-brand-700">{targetPromo}</strong> for ₹{discountAmount} instant discount!
-            </p>
-          )}
         </div>
       ) : (
         <div className="flex items-center justify-between rounded-xl bg-ok-50 px-3.5 py-2 text-xs font-medium text-ok ring-1 ring-inset ring-ok/20">
-          <span>Code <strong>{appliedPromo}</strong> applied (-₹{basePrice - effectivePrice})</span>
+          <span>Promo Code applied (-₹{basePrice - effectivePrice})</span>
           <button
             type="button"
             onClick={handleRemovePromo}

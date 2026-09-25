@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 export function LogoMark({ className = 'size-9' }: { className?: string }) {
   return (
@@ -13,10 +14,14 @@ export function LogoMark({ className = 'size-9' }: { className?: string }) {
 export function Logo({ href = '/' }: { href?: string }) {
   return (
     <Link href={href} className="flex items-center gap-2.5 rounded-md transition-opacity hover:opacity-80" aria-label="Nursing Level Up home">
-      <LogoMark />
-      <span className="font-serif text-[1.18rem] font-semibold leading-none tracking-tight text-ink">
-        Nursing <span className="text-brand-600">Level Up</span>
-      </span>
+      <Image
+        src="/images/logo.png"
+        alt="Nursing Level Up - Knowledge | Skills | Success"
+        width={220}
+        height={64}
+        className="h-14 w-auto object-contain"
+        priority
+      />
     </Link>
   );
 }

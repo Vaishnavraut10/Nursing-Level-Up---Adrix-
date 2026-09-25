@@ -173,7 +173,7 @@ export default async function TestSeriesDetailPage({ params }: { params: Promise
                 ? 'Unlocked with your course access'
                 : series.access === 'PURCHASED' && series.release_state === 'UPCOMING'
                 ? 'Scheduled to release soon at 5:00 PM IST'
-                : 'Part of the Complete Course (₹299, ₹199 with code NLUP199)'}
+                : 'Part of the Complete Course'}
             </p>
 
             <div className="mt-5 space-y-2">
@@ -193,13 +193,6 @@ export default async function TestSeriesDetailPage({ params }: { params: Promise
                 </ButtonLink>
               )}
             </div>
-
-            {!series.is_free && series.access !== 'PURCHASED' && (
-              <div className="mt-4 rounded-lg bg-brand-50/70 p-3 text-xs text-brand-900 border border-brand-200/50">
-                <span className="font-semibold">Promo code available:</span> Use code{' '}
-                <strong className="text-brand-700">NLUP199</strong> at checkout to get ₹100 off!
-              </div>
-            )}
 
             {attempts.length > 0 && (
               <div className="mt-6 border-t border-line pt-4">

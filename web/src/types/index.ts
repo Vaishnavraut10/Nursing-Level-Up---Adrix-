@@ -1,7 +1,7 @@
 export type Role = 'STUDENT' | 'ADMIN';
 export type UserStatus = 'ACTIVE' | 'SUSPENDED';
 export type TestStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
-export type CourseStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+export type CourseStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'DELETED';
 export type AnswerOption = 'A' | 'B' | 'C' | 'D';
 export type PurchaseStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED' | 'REFUNDED';
 export type AttemptStatus = 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED';
@@ -36,6 +36,9 @@ export interface Course {
   promo_code: string | null;
   currency: string;
   status: CourseStatus;
+  is_free: boolean;
+  thumbnail_key?: string | null;
+  thumbnail_url?: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -74,6 +77,13 @@ export interface PublicTestSeries {
   access: AccessState;
   has_access: boolean;
   course_id?: string | null;
+  resolved_course_id?: string | null;
+  course_title?: string | null;
+  course_description?: string | null;
+  course_is_free?: boolean;
+  course_price?: number;
+  course_discount_price?: number | null;
+  thumbnail_url?: string | null;
   /** Drip-release: days after course purchase this series becomes available */
   release_after_days: number;
   /** Drip-release: whether this series is currently available to the viewer */

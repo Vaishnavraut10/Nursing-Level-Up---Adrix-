@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ButtonLink, EmptyState } from '@/components/ui';
+import { ButtonLink } from '@/components/ui';
 import { CatalogGrid } from '@/components/test-series/CatalogGrid';
 import { getCurrentUser } from '@/lib/server/session';
 import { listPublished } from '@/lib/server/services/testSeriesService';
-import { getPublishedCourse, hasCoursePurchase } from '@/lib/server/services/courseService';
+import { getPublishedCourse, listPublishedCourses, hasCoursePurchase } from '@/lib/server/services/courseService';
 
 export const metadata: Metadata = {
   title: 'Test Series — Nursing Level Up',
@@ -14,15 +14,15 @@ export const dynamic = 'force-dynamic';
 
 export default async function TestSeriesPage() {
   const user = await getCurrentUser();
-  const [series, course] = await Promise.all([
+  const [courses, series] = await Promise.all([
+    listPublishedCourses(),
     listPublished(user),
-    getPublishedCourse(),
   ]);
-  const hasCourse = course && user ? await hasCoursePurchase(user.id, course.id) : false;
+  const defaultCourse = courses[0] || (await getPublishedCourse());
+  const hasCourse = defaultCourse && user ? await hasCoursePurchase(user.id, defaultCourse.id) : false;
 
-  const free = series.filter((s) => s.is_free);
-  const paid = series.filter((s) => !s.is_free);
-
+  const freeSeries = series.filter((s) => s.is_free);
+  const paidSeries = series.filter((s) => !s.is_free);
   const totalQuestions = series.reduce((acc, s) => acc + (s.question_count || 0), 0);
 
   return (
@@ -54,19 +54,19 @@ export default async function TestSeriesPage() {
                   Test series
                 </h1>
                 <p className="mt-3.5 max-w-xl text-[1rem] sm:text-[1.05rem] leading-relaxed text-muted">
-                  Up to 200+ timed, exam-level MCQ tests with explained answers. Start with free series or unlock the complete course for daily daily releases.
+                  Up to 200+ timed, exam-level MCQ tests with explained answers. Start with free series or unlock the complete course for daily releases.
                 </p>
 
                 {/* Small Quick Stats Pill Row */}
                 <div className="mt-7 flex flex-wrap items-center gap-3 text-xs sm:text-sm text-ink-2">
                   <div className="flex items-center gap-2 rounded-xl border border-line/80 bg-surface/80 px-3.5 py-2 shadow-2xs">
                     <span className="flex size-2 rounded-full bg-ok" />
-                    <span className="font-semibold text-ink">{free.length}</span>
+                    <span className="font-semibold text-ink">{freeSeries.length}</span>
                     <span className="text-muted">Free Series</span>
                   </div>
                   <div className="flex items-center gap-2 rounded-xl border border-line/80 bg-surface/80 px-3.5 py-2 shadow-2xs">
                     <span className="flex size-2 rounded-full bg-amber-500" />
-                    <span className="font-semibold text-ink">{paid.length > 0 ? paid.length : '200+'}</span>
+                    <span className="font-semibold text-ink">{paidSeries.length > 0 ? paidSeries.length : '200+'}</span>
                     <span className="text-muted">Course Series</span>
                   </div>
                   <div className="flex items-center gap-2 rounded-xl border border-line/80 bg-surface/80 px-3.5 py-2 shadow-2xs">
@@ -99,15 +99,11 @@ export default async function TestSeriesPage() {
                         Complete Course Pass
                       </span>
                     </div>
-                    {hasCourse ? (
+                    {hasCourse && (
                       <span className="rounded-full bg-ok-50 px-2.5 py-0.5 text-[11px] font-semibold text-ok ring-1 ring-ok/20">
                         Enrolled ✓
                       </span>
-                    ) : course?.promo_code ? (
-                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200/60">
-                        Promo: {course.promo_code}
-                      </span>
-                    ) : null}
+                    )}
                   </div>
 
                   {hasCourse ? (
@@ -124,14 +120,9 @@ export default async function TestSeriesPage() {
                     <div className="mt-4 space-y-3">
                       <div className="flex items-baseline justify-between">
                         <div>
-                          <div className="font-serif text-2xl font-bold text-ink">₹{course?.price ?? 299}</div>
-                          {course?.promo_code && course?.discount_price && (
-                            <div className="text-[11px] text-muted">
-                              ₹{course.discount_price} with code <strong className="text-brand-700 font-semibold">{course.promo_code}</strong>
-                            </div>
-                          )}
+                          <div className="font-serif text-2xl font-bold text-ink">₹{defaultCourse?.price ?? 299}</div>
                         </div>
-                        <ButtonLink href="/course" size="sm" className="rounded-xl">
+                        <ButtonLink href={defaultCourse ? `/course?id=${defaultCourse.id}` : '/course'} size="sm" className="rounded-xl">
                           Enroll Now →
                         </ButtonLink>
                       </div>
@@ -171,14 +162,7 @@ export default async function TestSeriesPage() {
 
         {/* ── Main Catalog Content ── */}
         <main className="catalog-container py-10 sm:py-14">
-          {series.length === 0 ? (
-            <EmptyState
-              title="No test series published yet"
-              description="Please check back soon — new series are added regularly."
-            />
-          ) : (
-            <CatalogGrid free={free} paid={paid} />
-          )}
+          <CatalogGrid courses={courses} series={series} />
         </main>
       </div>
     </div>

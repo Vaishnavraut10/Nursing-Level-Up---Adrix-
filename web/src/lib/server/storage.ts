@@ -1,7 +1,7 @@
 import 'server-only';
 import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, CreateBucketCommand } from '@aws-sdk/client-s3';
 
 // Object storage for uploaded documents and extracted text (Architecture doc §6).
 // S3-compatible storage in production; a local folder in development when S3 isn't configured.
@@ -44,7 +44,17 @@ export function storageBackend() {
 export async function uploadFile(key: string, body: Buffer, contentType: string) {
   assertStorageAvailable();
   if (s3Configured()) {
-    await s3().send(new PutObjectCommand({ Bucket: getBucket(), Key: key, Body: body, ContentType: contentType }));
+    try {
+      await s3().send(new PutObjectCommand({ Bucket: getBucket(), Key: key, Body: body, ContentType: contentType }));
+    } catch (err: unknown) {
+      const e = err as { name?: string; Code?: string; $metadata?: { httpStatusCode?: number } };
+      if (e?.name === 'NoSuchBucket' || e?.Code === 'NoSuchBucket' || e?.$metadata?.httpStatusCode === 404) {
+        await s3().send(new CreateBucketCommand({ Bucket: getBucket() }));
+        await s3().send(new PutObjectCommand({ Bucket: getBucket(), Key: key, Body: body, ContentType: contentType }));
+        return;
+      }
+      throw err;
+    }
     return;
   }
   const file = localPath(key);

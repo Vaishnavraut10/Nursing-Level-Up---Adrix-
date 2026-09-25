@@ -228,10 +228,10 @@ export default async function DashboardPage() {
               </div>
               <h3 className="mt-4 font-serif text-xl text-ink">No course enrollment yet</h3>
               <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-                Enroll in the Nursing Level Up Complete Course for ₹299 (use code <strong className="font-semibold text-brand-700">NLUP199</strong> for ₹199). Get full access to 200+ test series with new tests released daily at 5:00 PM IST!
+                Enroll in the Nursing Level Up Complete Course. Get full access to 200+ test series with new tests released daily at 5:00 PM IST!
               </p>
               <ButtonLink href="/course" className="mt-6 rounded-full px-6" size="md">
-                Enroll in Course — ₹199
+                Enroll in Course
               </ButtonLink>
             </div>
           ) : (
@@ -254,8 +254,7 @@ export default async function DashboardPage() {
                       <span>Enrolled {formatDate(p.created_at)}</span>
                     </div>
                     <div className="mt-2 text-sm text-muted">
-                      {formatMoney(p.amount, p.currency)}
-                      {p.promo_code_used && ` · Code ${p.promo_code_used}`} · Daily 5 PM Releases
+                      {formatMoney(p.amount, p.currency)} · Daily 5 PM Releases
                     </div>
                     <div className="mt-5 flex gap-2">
                       <ButtonLink href="/test-series" size="sm" className="flex-1 justify-center rounded-lg">

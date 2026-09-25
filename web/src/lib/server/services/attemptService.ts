@@ -36,7 +36,11 @@ export interface StartedAttempt {
 export async function start(user: User, testSeriesId: string): Promise<StartedAttempt> {
   return transaction(async (db) => {
     const series = await queryOne<{ id: string; title: string; instructions: string | null; is_free: boolean; duration_minutes: number }>(
-      `SELECT id, title, instructions, is_free, duration_minutes FROM test_series WHERE id = $1 AND status = 'PUBLISHED'`,
+      `SELECT ts.id, ts.title, ts.instructions, ts.is_free, ts.duration_minutes
+         FROM test_series ts
+         LEFT JOIN courses c ON c.id = ts.course_id
+        WHERE ts.id = $1 AND ts.status = 'PUBLISHED'
+          AND (ts.course_id IS NULL OR c.status = 'PUBLISHED')`,
       [testSeriesId],
       db,
     );
