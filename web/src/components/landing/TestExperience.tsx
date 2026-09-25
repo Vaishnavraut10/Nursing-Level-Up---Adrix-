@@ -79,7 +79,7 @@ export function TestExperience() {
           <div className="order-1 lg:order-2">
             <SectionTag>The test experience</SectionTag>
             <h2 className="mt-4 font-serif text-3xl font-semibold tracking-tight sm:text-4xl">
-              Practice like it's the real thing.
+              Practice like it&apos;s the real thing.
             </h2>
             <p className="mt-5 text-[1.05rem] leading-relaxed text-ink-2">
               The test interface mirrors actual exam conditions — timed, focused, and built

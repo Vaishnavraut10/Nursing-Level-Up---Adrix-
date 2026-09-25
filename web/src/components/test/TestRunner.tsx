@@ -357,7 +357,7 @@ export function TestRunner({
       onDragStart={(e) => e.preventDefault()}
     >
       {/* Anti-Cheating Tab Switch Warning Modal */}
-      {violationActive && phase === 'running' && !submittedRef.current && (
+      {violationActive && phase === 'running' && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-ink/75 backdrop-blur-sm p-4 animate-fade-in"
           role="alertdialog"

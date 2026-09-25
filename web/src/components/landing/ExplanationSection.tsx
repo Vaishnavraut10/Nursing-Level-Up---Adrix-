@@ -18,7 +18,7 @@ export function ExplanationSection() {
               <span className="h-px w-3 bg-brand-300/30" aria-hidden="true" />
             </div>
             <h2 className="mt-4 font-serif text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-              Don't just know the answer.
+              Don&apos;t just know the answer.
               <br />
               <span className="text-brand-200">Understand why.</span>
             </h2>

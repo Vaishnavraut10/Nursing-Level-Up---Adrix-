@@ -11,7 +11,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  // Node-only packages (native bindings, workers, large parsers) are loaded at runtime, not bundled.
+  turbopack: {
+    root: __dirname,
+  },
   serverExternalPackages: ['pg', 'tesseract.js', 'pdf-parse', 'mammoth', '@napi-rs/canvas'],
   poweredByHeader: false,
   images: {

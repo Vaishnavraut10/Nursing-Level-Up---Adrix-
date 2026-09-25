@@ -231,7 +231,7 @@ export default async function LandingPage() {
               <SectionTag className="justify-center mb-5">Our team</SectionTag>
               <h2 className="font-serif text-5xl font-semibold tracking-tight sm:text-6xl lg:text-[4rem]">Meet the creators</h2>
               <p className="mx-auto mt-5 max-w-2xl text-[1.1rem] leading-relaxed text-ink-2">
-                Built by nursing professionals who've been through the exams themselves — every question is crafted from real clinical experience.
+                Built by nursing professionals who&apos;ve been through the exams themselves — every question is crafted from real clinical experience.
               </p>
             </div>
             <div className="grid gap-10 sm:grid-cols-2">

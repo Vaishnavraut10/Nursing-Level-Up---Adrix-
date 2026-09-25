@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui';
 import { errorMessage } from '@/lib/api';
 
@@ -22,11 +22,11 @@ export function CourseThumbnailUpload({
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (initialThumbnailUrl !== undefined) {
-      setThumbnailUrl(initialThumbnailUrl);
-    }
-  }, [initialThumbnailUrl]);
+  const [prevInitial, setPrevInitial] = useState(initialThumbnailUrl);
+  if (initialThumbnailUrl !== prevInitial) {
+    setPrevInitial(initialThumbnailUrl);
+    setThumbnailUrl(initialThumbnailUrl ?? null);
+  }
 
   async function uploadFile(file: File) {
     if (!file.type.startsWith('image/')) {
