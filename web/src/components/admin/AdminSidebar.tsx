@@ -12,6 +12,7 @@ const NAV = [
   { href: '/admin/courses', label: 'Courses', icon: 'M10.394 2.08a1 1 0 0 0-.788 0l-7 3a1 1 0 0 0 0 1.84L5.25 8.051a.999.999 0 0 1 .356-.257l4-1.714a1 1 0 1 1 .788 1.838L7.667 9.088l1.94.831a1 1 0 0 0 .787 0l7-3a1 1 0 0 0 0-1.838l-7-3ZM3.31 9.397 5 10.12v4.102a8.969 8.969 0 0 0-1.05-.174 1 1 0 0 1-.89-.89 11.115 11.115 0 0 1 .25-3.762ZM9.3 16.573A9.026 9.026 0 0 1 7 14.935v-3.957l1.818.78a3 3 0 0 0 2.364 0l5.508-2.361a11.026 11.026 0 0 1 .25 3.762 1 1 0 0 1-.89.89 8.968 8.968 0 0 0-5.35 2.524 1 1 0 0 1-1.4 0ZM6 18a1 1 0 0 0 1-1v-2.065a8.935 8.935 0 0 0-2-.718V17a1 1 0 0 0 1 1Z' },
   { href: '/admin/users', label: 'Users', icon: 'M10 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-6 8c0-3 3-5 6-5s6 2 6 5z' },
   { href: '/admin/test-series', label: 'Test Series', icon: 'M4 3h9l3 3v11H4zm3 5h6v1.5H7zm0 3h6v1.5H7z' },
+  { href: '/admin/daily-tests', label: 'Daily Test Series', icon: 'M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm2 5a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1zm0 4a1 1 0 011-1h4a1 1 0 110 2H9a1 1 0 01-1-1zm0 4a1 1 0 011-1h4a1 1 0 110 2H9a1 1 0 01-1-1z' },
   { href: '/admin/questions', label: 'Questions', icon: 'M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 12.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm1-4v.5H9V9.5c0-1.5 2-1.6 2-3a1 1 0 0 0-2 0H7a3 3 0 1 1 6 0c0 2-2 2.3-2 4z' },
   { href: '/admin/purchases', label: 'Purchases', icon: 'M3 5h14v10H3zm0 3h14v2H3z' },
   { href: '/admin/attempts', label: 'Attempts', icon: 'M5 3h10v14H5zm2 4h6v1.5H7zm0 3h6v1.5H7zm0 3h4v1.5H7z' },

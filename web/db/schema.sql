@@ -232,12 +232,86 @@ CREATE TABLE IF NOT EXISTS payment_events (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- ---------------------------------------------------------------- daily_tests
+CREATE TABLE IF NOT EXISTS daily_tests (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  test_date         DATE NOT NULL,
+  title             TEXT NOT NULL CHECK (length(trim(title)) > 0),
+  description       TEXT,
+  category          TEXT,
+  duration_minutes  INTEGER NOT NULL CHECK (duration_minutes > 0),
+  total_marks       INTEGER NOT NULL DEFAULT 0 CHECK (total_marks >= 0),
+  negative_marks    NUMERIC(4,2) NOT NULL DEFAULT 0 CHECK (negative_marks >= 0),
+  status            test_status NOT NULL DEFAULT 'DRAFT',
+  instructions      TEXT,
+  created_by        UUID REFERENCES users(id),
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  published_at      TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_daily_tests_test_date ON daily_tests (test_date);
+CREATE INDEX IF NOT EXISTS idx_daily_tests_status ON daily_tests (status);
+
+-- ---------------------------------------------------------------- daily_test_questions
+CREATE TABLE IF NOT EXISTS daily_test_questions (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  daily_test_id       UUID NOT NULL REFERENCES daily_tests(id) ON DELETE CASCADE,
+  question_text       TEXT NOT NULL CHECK (length(trim(question_text)) > 0),
+  option_a            TEXT NOT NULL CHECK (length(trim(option_a)) > 0),
+  option_b            TEXT NOT NULL CHECK (length(trim(option_b)) > 0),
+  option_c            TEXT NOT NULL CHECK (length(trim(option_c)) > 0),
+  option_d            TEXT NOT NULL CHECK (length(trim(option_d)) > 0),
+  correct_answer      answer_option NOT NULL,
+  explanation         TEXT,
+  marks               INTEGER NOT NULL DEFAULT 1 CHECK (marks > 0),
+  question_order      INTEGER NOT NULL,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_daily_question_order UNIQUE (daily_test_id, question_order) DEFERRABLE INITIALLY IMMEDIATE
+);
+CREATE INDEX IF NOT EXISTS idx_daily_test_questions_test_id ON daily_test_questions (daily_test_id);
+
+-- ---------------------------------------------------------------- daily_test_attempts
+CREATE TABLE IF NOT EXISTS daily_test_attempts (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id             UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  daily_test_id       UUID NOT NULL REFERENCES daily_tests(id) ON DELETE RESTRICT,
+  started_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  submitted_at        TIMESTAMPTZ,
+  score               NUMERIC(6,2),
+  total_marks         INTEGER NOT NULL DEFAULT 0,
+  total_questions     INTEGER NOT NULL,
+  correct_answers     INTEGER,
+  incorrect_answers   INTEGER,
+  unanswered          INTEGER,
+  percentage          NUMERIC(5,2),
+  time_taken_seconds  INTEGER,
+  status              attempt_status NOT NULL DEFAULT 'IN_PROGRESS',
+  question_ids        UUID[] NOT NULL DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS idx_daily_test_attempts_user_id ON daily_test_attempts (user_id);
+CREATE INDEX IF NOT EXISTS idx_daily_test_attempts_test_id ON daily_test_attempts (daily_test_id);
+CREATE INDEX IF NOT EXISTS idx_daily_test_attempts_status ON daily_test_attempts (status);
+
+-- ---------------------------------------------------------------- daily_test_user_answers
+CREATE TABLE IF NOT EXISTS daily_test_user_answers (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  attempt_id       UUID NOT NULL REFERENCES daily_test_attempts(id) ON DELETE CASCADE,
+  question_id      UUID NOT NULL REFERENCES daily_test_questions(id) ON DELETE RESTRICT,
+  selected_answer  answer_option,
+  is_correct       BOOLEAN,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (attempt_id, question_id)
+);
+CREATE INDEX IF NOT EXISTS idx_daily_user_answers_attempt_id ON daily_test_user_answers (attempt_id);
+
 -- ---------------------------------------------------------------- triggers
 DO $$
 DECLARE t TEXT;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['users','test_series','documents','questions','purchases'] LOOP
+  FOREACH t IN ARRAY ARRAY['users','test_series','documents','questions','purchases','daily_tests','daily_test_questions'] LOOP
     EXECUTE format('DROP TRIGGER IF EXISTS trg_%1$s_updated_at ON %1$s', t);
     EXECUTE format('CREATE TRIGGER trg_%1$s_updated_at BEFORE UPDATE ON %1$s FOR EACH ROW EXECUTE FUNCTION set_updated_at()', t);
   END LOOP;
 END $$;
+

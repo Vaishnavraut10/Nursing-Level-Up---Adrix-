@@ -8,6 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import pg from 'pg';
+import bcrypt from 'bcryptjs';
 import * as seed from './seed-data.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -16,7 +17,14 @@ dotenv.config({ path: path.join(root, '.env'), quiet: true });
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(name);
-const adminEmail = args.includes('--admin') ? args[args.indexOf('--admin') + 1] : null;
+
+const adminEmail = args.includes('--admin')
+  ? args[args.indexOf('--admin') + 1]
+  : process.env.ADMIN_EMAIL || null;
+
+const adminPassword = args.includes('--password')
+  ? args[args.indexOf('--password') + 1]
+  : process.env.ADMIN_PASSWORD || null;
 
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL is not set. Copy .env.example to .env.local and fill it in.');
@@ -42,18 +50,25 @@ try {
   }
 
   if (adminEmail) {
+    const passwordHash = adminPassword ? await bcrypt.hash(adminPassword, 12) : null;
+
     const { rows } = await client.query(
-      `INSERT INTO users (name, email, role) VALUES ($1, $2, 'ADMIN')
-       ON CONFLICT (email) DO UPDATE SET role = 'ADMIN'
+      `INSERT INTO users (name, email, password_hash, role, status)
+       VALUES ($1, $2, $3, 'ADMIN', 'ACTIVE')
+       ON CONFLICT (email) DO UPDATE SET
+         role = 'ADMIN',
+         status = 'ACTIVE',
+         password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
+         updated_at = now()
        RETURNING id, email, role`,
-      [adminEmail.split('@')[0], adminEmail],
+      [adminEmail.split('@')[0], adminEmail.toLowerCase(), passwordHash],
     );
     await client.query(
       `INSERT INTO audit_logs (action, entity_type, entity_id, metadata)
        VALUES ('ADMIN_PROVISIONED', 'user', $1, $2)`,
-      [rows[0].id, { via: 'cli' }],
+      [rows[0].id, { via: 'cli_or_env' }],
     );
-    console.log(`✓ ${rows[0].email} is now ADMIN (links to Google on first sign-in)`);
+    console.log(`✓ ${rows[0].email} is now ADMIN (role='ADMIN', status='ACTIVE', password hashed)`);
   }
 } finally {
   await client.end();

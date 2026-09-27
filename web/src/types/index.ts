@@ -62,6 +62,119 @@ export interface TestSeries {
   question_count: number;
 }
 
+export interface DailyTest {
+  id: string;
+  test_date: string;
+  title: string;
+  description: string | null;
+  category: string | null;
+  duration_minutes: number;
+  total_marks: number;
+  negative_marks: number;
+  status: TestStatus;
+  instructions: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
+  question_count: number;
+}
+
+export interface PublicDailyTest {
+  id: string;
+  test_date: string;
+  title: string;
+  description: string | null;
+  category: string | null;
+  duration_minutes: number;
+  total_marks: number;
+  negative_marks: number;
+  instructions: string | null;
+  published_at: string | null;
+  question_count: number;
+  is_today: boolean;
+  is_past: boolean;
+  user_attempt?: {
+    id: string;
+    status: AttemptStatus;
+    score: number | null;
+    total_marks: number;
+    percentage: number | null;
+  } | null;
+}
+
+export interface DailyTestQuestion {
+  id: string;
+  daily_test_id: string;
+  question_text: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  correct_answer: AnswerOption;
+  explanation: string | null;
+  marks: number;
+  question_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StudentDailyTestQuestion {
+  id: string;
+  question_text: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  marks: number;
+  question_order: number;
+}
+
+export interface DailyTestAttempt {
+  id: string;
+  user_id: string;
+  daily_test_id: string;
+  started_at: string;
+  submitted_at: string | null;
+  score: number | null;
+  total_marks: number;
+  total_questions: number;
+  correct_answers: number | null;
+  incorrect_answers: number | null;
+  unanswered: number | null;
+  percentage: number | null;
+  time_taken_seconds: number | null;
+  status: AttemptStatus;
+  test_title?: string;
+  test_date?: string;
+  user_name?: string;
+  user_email?: string;
+}
+
+export interface DailyTestReviewItem {
+  question_id: string;
+  question_order: number;
+  question_text: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  correct_answer: AnswerOption;
+  explanation: string | null;
+  marks: number;
+  selected_answer: AnswerOption | null;
+  is_correct: boolean | null;
+}
+
+export interface DailyTestResult extends DailyTestAttempt {
+  test_title: string;
+  test_date: string;
+  category: string | null;
+  duration_minutes: number;
+  review: DailyTestReviewItem[];
+}
+
+
 /** Public catalog item: includes the viewer-specific access state computed server-side. */
 export interface PublicTestSeries {
   id: string;

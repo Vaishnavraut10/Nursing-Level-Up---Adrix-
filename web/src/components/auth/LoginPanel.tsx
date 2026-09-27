@@ -172,7 +172,9 @@ export function LoginPanel({
       {error && (
         <Alert title="Couldn't sign you in">
           {error === 'forbidden'
-            ? 'This account does not have admin access.'
+            ? admin
+              ? 'This account does not have admin access.'
+              : 'Sign-in failed. Please try again.'
             : error === 'AccessDenied'
               ? 'Access was denied. If this email is already linked to another Google account, contact support.'
               : 'Please try again.'}

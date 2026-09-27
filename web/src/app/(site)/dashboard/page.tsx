@@ -200,15 +200,15 @@ export default async function DashboardPage() {
         <div className="mt-8">
           <h2 className="mb-4 text-lg font-semibold text-ink">Quick Actions</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <QuickAction href="/daily-tests" icon={<StarIcon />} label="Daily Test Series" desc="Practice today's questions" highlight />
             <QuickAction href="/test-series" icon={<SearchIcon />} label="Browse Test Series" desc="Find new practice tests" />
             {inProgress.length > 0 ? (
-              <QuickAction href={`/tests/${inProgress[0].test_series_id}`} icon={<PlayIcon />} label="Continue Practice" desc={inProgress[0].test_title || 'Resume session'} highlight />
+              <QuickAction href={`/tests/${inProgress[0].test_series_id}`} icon={<PlayIcon />} label="Continue Practice" desc={inProgress[0].test_title || 'Resume session'} />
             ) : completed.length > 0 ? (
               <QuickAction href={`/results/${completed[0].id}`} icon={<PlayIcon />} label="Last Result" desc={completed[0].test_title || 'View result'} />
             ) : (
               <QuickAction href="/test-series" icon={<PlayIcon />} label="Start Practicing" desc="Begin your first test" />
             )}
-            <QuickAction href="/test-series" icon={<StarIcon />} label="Free Tests" desc="No cost to get started" />
             <QuickAction href="/profile" icon={<UserIcon />} label="Edit Profile" desc="Update your details" />
           </div>
         </div>

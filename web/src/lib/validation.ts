@@ -123,3 +123,61 @@ export const paginationSchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   q: z.string().trim().max(200).optional(),
 });
+
+export const dailyTestInputSchema = z.object({
+  test_date: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
+  title: z.string().trim().min(1, 'Title is required').max(200, 'Title must be at most 200 characters'),
+  description: optionalText(5000),
+  category: optionalText(100),
+  duration_minutes: z.coerce
+    .number()
+    .int('Duration must be a whole number of minutes')
+    .min(1, 'Duration must be greater than 0')
+    .max(600, 'Duration must be at most 600 minutes'),
+  negative_marks: z.coerce.number().min(0, 'Negative marks cannot be negative').max(10).default(0),
+  instructions: optionalText(10000),
+  status: testStatusSchema.default('DRAFT'),
+});
+
+export type DailyTestInput = z.infer<typeof dailyTestInputSchema>;
+
+export const dailyQuestionInputSchema = z.object({
+  question_text: z.string().trim().min(1, 'Question is required').max(5000),
+  option_a: z.string().trim().min(1, 'Option A is required').max(1000),
+  option_b: z.string().trim().min(1, 'Option B is required').max(1000),
+  option_c: z.string().trim().min(1, 'Option C is required').max(1000),
+  option_d: z.string().trim().min(1, 'Option D is required').max(1000),
+  correct_answer: z
+    .string()
+    .trim()
+    .transform((v) => v.toUpperCase())
+    .pipe(answerOptionSchema),
+  explanation: optionalText(5000),
+  marks: z.coerce.number().int().min(1, 'Marks must be at least 1').max(100).default(1),
+});
+
+export type DailyQuestionInput = z.infer<typeof dailyQuestionInputSchema>;
+
+export const dailyQuestionBulkItemSchema = z.object({
+  id: z.string().uuid().optional().nullable(),
+  question_text: z.string().trim().min(1, 'Question text is required').max(5000),
+  option_a: z.string().trim().min(1, 'Option A is required').max(1000),
+  option_b: z.string().trim().min(1, 'Option B is required').max(1000),
+  option_c: z.string().trim().min(1, 'Option C is required').max(1000),
+  option_d: z.string().trim().min(1, 'Option D is required').max(1000),
+  correct_answer: z
+    .string()
+    .trim()
+    .transform((v) => v.toUpperCase())
+    .pipe(answerOptionSchema),
+  explanation: optionalText(5000),
+  marks: z.coerce.number().int().min(1, 'Marks must be at least 1').max(100).default(1),
+});
+
+export const bulkDailyQuestionsSchema = z.object({
+  questions: z.array(dailyQuestionBulkItemSchema),
+});
+
+export type DailyQuestionBulkItem = z.infer<typeof dailyQuestionBulkItemSchema>;
+
+
