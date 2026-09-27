@@ -89,14 +89,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // email-password and dev credentials are already validated in authorize()
       return account?.provider === 'email-password' || (account?.provider === 'dev' && devLoginEnabled);
     },
-    async jwt({ token, account, user }) {
+    async jwt({ token, account, user, profile }) {
       if (account) {
-        const dbUser =
-          account.provider === 'google'
-            ? await userService.findByGoogleId(account.providerAccountId)
-            : user?.id
-              ? await userService.findById(user.id)
-              : null;
+        let dbUser = null;
+        if (account.provider === 'google') {
+          dbUser =
+            (await userService.findByGoogleId(account.providerAccountId)) ||
+            (profile?.email ? await userService.findByEmail(profile.email) : null) ||
+            (user?.email ? await userService.findByEmail(user.email) : null);
+        } else if (user?.id) {
+          dbUser = await userService.findById(user.id);
+        }
         if (dbUser) {
           token.uid = dbUser.id;
           token.role = dbUser.role;
@@ -110,11 +113,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (!token.uid && token.sub) {
         token.uid = token.sub;
       }
+
+      // Re-query PostgreSQL to guarantee token.role is always fresh and authoritative
+      if (token.uid) {
+        const dbUser =
+          (await userService.findById(token.uid as string)) ||
+          (token.email ? await userService.findByEmail(token.email as string) : null);
+        if (dbUser) {
+          token.uid = dbUser.id;
+          token.role = dbUser.role;
+          token.name = dbUser.name;
+          token.email = dbUser.email;
+        }
+      }
       return token;
     },
     async session({ session, token }) {
       if (token.uid) {
-        session.user.id = token.uid;
+        session.user.id = token.uid as string;
         session.user.role = token.role ?? 'STUDENT';
       }
       return session;

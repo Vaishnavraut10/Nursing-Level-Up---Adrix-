@@ -14,7 +14,7 @@ export async function findByGoogleId(googleId: string) {
 }
 
 export async function findByEmail(email: string) {
-  return queryOne<User>(`SELECT ${USER_COLUMNS} FROM users WHERE email = $1`, [email]);
+  return queryOne<User>(`SELECT ${USER_COLUMNS} FROM users WHERE LOWER(email) = LOWER($1)`, [email]);
 }
 
 /**

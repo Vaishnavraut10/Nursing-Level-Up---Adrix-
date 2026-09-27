@@ -10,6 +10,7 @@ export default async function CompleteProfilePage({ searchParams }: { searchPara
   const { next: rawNext } = await searchParams;
   const next = safeNext(rawNext);
   const user = await requireUserPage('/complete-profile');
+  if (user.role === 'ADMIN') redirect('/admin');
   if (user.phone) redirect(next);
 
   return (

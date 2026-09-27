@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { signOut } from 'next-auth/react';
 
-export function UserMenu({ name, email }: { name: string; email: string }) {
+export function UserMenu({ name, email, role }: { name: string; email: string; role?: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const initials = name.split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
@@ -41,7 +41,11 @@ export function UserMenu({ name, email }: { name: string; email: string }) {
             <div className="truncate text-xs text-muted">{email}</div>
           </div>
           <div className="py-1 text-sm">
-            <Link role="menuitem" href="/dashboard" className="block px-4 py-2 text-ink-2 hover:bg-sunken" onClick={() => setOpen(false)}>Dashboard</Link>
+            {role === 'ADMIN' ? (
+              <Link role="menuitem" href="/admin" className="block px-4 py-2 font-medium text-brand-700 hover:bg-sunken" onClick={() => setOpen(false)}>Admin Panel</Link>
+            ) : (
+              <Link role="menuitem" href="/dashboard" className="block px-4 py-2 text-ink-2 hover:bg-sunken" onClick={() => setOpen(false)}>Dashboard</Link>
+            )}
             <Link role="menuitem" href="/profile" className="block px-4 py-2 text-ink-2 hover:bg-sunken" onClick={() => setOpen(false)}>Profile</Link>
             <button role="menuitem" type="button" className="block w-full px-4 py-2 text-left text-ink-2 hover:bg-sunken" onClick={() => signOut({ redirectTo: '/' })}>
               Log out

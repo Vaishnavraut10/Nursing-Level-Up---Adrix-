@@ -80,13 +80,13 @@ export default async function LandingPage() {
             <div className="mt-12 border-t border-line/50 pt-7">
               <dl className="flex items-stretch gap-0">
                 <div className="animate-fade-up stagger-1 flex-1 pr-6">
-                  <dd className="font-serif text-4xl font-semibold text-ink tabular-nums">{series.length > 0 ? series.length : '200+'}</dd>
-                  <dt className="mt-1 text-xs font-medium uppercase tracking-[0.1em] text-muted">Test series</dt>
+                  <dd className="font-serif text-4xl font-semibold text-ink">NURSING EXAMS</dd>
+                  <dt className="mt-1 text-xs font-medium uppercase tracking-[0.1em] text-muted">PREPARATION</dt>
                 </div>
                 <div className="self-stretch w-px bg-line" aria-hidden="true" />
                 <div className="animate-fade-up stagger-2 flex-1 px-6">
-                  <dd className="font-serif text-4xl font-semibold text-ink tabular-nums">{free.length}</dd>
-                  <dt className="mt-1 text-xs font-medium uppercase tracking-[0.1em] text-muted">Free to start</dt>
+                  <dd className="font-serif text-4xl font-semibold text-ink">EXPERT CONTENT</dd>
+                  <dt className="mt-1 text-xs font-medium uppercase tracking-[0.1em] text-muted">CURATED</dt>
                 </div>
                 <div className="self-stretch w-px bg-line" aria-hidden="true" />
                 <div className="animate-fade-up stagger-3 flex-1 pl-6">

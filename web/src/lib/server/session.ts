@@ -64,7 +64,8 @@ export async function requireUserPage(currentPath: string): Promise<User> {
 
 export async function requireStudentPage(currentPath: string): Promise<User> {
   const user = await requireUserPage(currentPath);
-  if (!user.phone && user.role !== 'ADMIN') redirect(`/complete-profile?next=${encodeURIComponent(currentPath)}`);
+  if (user.role === 'ADMIN') redirect('/admin');
+  if (!user.phone) redirect(`/complete-profile?next=${encodeURIComponent(currentPath)}`);
   return user;
 }
 
