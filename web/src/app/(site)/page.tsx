@@ -94,9 +94,7 @@ export default async function LandingPage() {
                 </div>
                 <div className="self-stretch w-px bg-line" aria-hidden="true" />
                 <div className="animate-fade-up stagger-3 flex-1 pl-6">
-                  <dd className="font-serif text-4xl font-semibold text-ink">
-                    {course && (course.is_free || Number(course.price) === 0) ? 'FREE' : '₹299'}
-                  </dd>
+                  <dd className="font-serif text-4xl font-semibold text-ink">₹299</dd>
                   <dt className="mt-1 text-xs font-medium uppercase tracking-[0.1em] text-muted">Course pass</dt>
                 </div>
               </dl>
