@@ -48,9 +48,11 @@ export async function getById(id: string): Promise<Course | null> {
   return row ? withThumbnailUrl(row) : null;
 }
 
+import { hasActiveFreeAccess } from './freeAccessService';
+
 // ---- Access checks ----
 
-/** Returns true if the user has a successful course purchase or if the course is free. */
+/** Returns true if the user has a successful course purchase, active free access grant, or if the course is free. */
 export async function hasCoursePurchase(userId: string, courseId: string): Promise<boolean> {
   const course = await queryOne<{ is_free: boolean; price: number }>(
     `SELECT is_free, price FROM courses WHERE id = $1`,
@@ -63,10 +65,12 @@ export async function hasCoursePurchase(userId: string, courseId: string): Promi
     `SELECT 1 FROM purchases WHERE user_id = $1 AND course_id = $2 AND status = 'SUCCESS' LIMIT 1`,
     [userId, courseId],
   );
-  return row !== null;
+  if (row !== null) return true;
+
+  return hasActiveFreeAccess(userId, courseId);
 }
 
-/** Returns the earliest successful course purchase date (access_started_at for drip schedule). */
+/** Returns the earliest successful course purchase date or free access grant date (access_started_at for drip schedule). */
 export async function getAccessStartedAt(userId: string, courseId: string): Promise<Date | null> {
   const row = await queryOne<{ access_started_at: string }>(
     `SELECT MIN(created_at) AS access_started_at FROM purchases
@@ -75,6 +79,14 @@ export async function getAccessStartedAt(userId: string, courseId: string): Prom
   );
   if (row?.access_started_at) {
     return new Date(row.access_started_at);
+  }
+  const grant = await queryOne<{ granted_at: string }>(
+    `SELECT granted_at FROM course_free_access
+     WHERE user_id = $1 AND course_id = $2 AND status = 'ACTIVE' AND revoked_at IS NULL ORDER BY granted_at ASC LIMIT 1`,
+    [userId, courseId],
+  );
+  if (grant?.granted_at) {
+    return new Date(grant.granted_at);
   }
   const course = await queryOne<{ created_at: string; is_free: boolean; price: number }>(
     `SELECT created_at, is_free, price FROM courses WHERE id = $1`,

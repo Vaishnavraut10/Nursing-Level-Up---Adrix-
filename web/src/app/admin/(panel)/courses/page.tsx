@@ -4,6 +4,7 @@ import { AdminHeader, FilterBar, Pagination, filterInput, parsePage } from '@/co
 import { adminList } from '@/lib/server/services/courseService';
 import { formatDate, formatMoney, formatPrice } from '@/lib/format';
 import type { CourseStatus } from '@/types';
+import { DeleteCourseButton } from '@/components/admin/DeleteCourseButton';
 
 export const metadata = { title: 'Courses' };
 export const dynamic = 'force-dynamic';
@@ -130,6 +131,15 @@ export default async function AdminCoursesPage({
                 <Link href={`/admin/courses/${c.id}/edit`} className="text-sm font-medium text-brand-600 hover:underline">
                   Edit
                 </Link>
+                <span className="mx-2 text-line-strong">|</span>
+                <DeleteCourseButton
+                  courseId={c.id}
+                  courseTitle={c.title}
+                  coursePrice={Number(c.price)}
+                  isFree={c.is_free}
+                  purchaseCount={c.purchase_count}
+                  status={c.status}
+                />
               </Td>
             </tr>
           ))}

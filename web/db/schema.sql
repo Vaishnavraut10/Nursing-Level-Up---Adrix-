@@ -305,11 +305,31 @@ CREATE TABLE IF NOT EXISTS daily_test_user_answers (
 );
 CREATE INDEX IF NOT EXISTS idx_daily_user_answers_attempt_id ON daily_test_user_answers (attempt_id);
 
+-- ---------------------------------------------------------------- course_free_access
+CREATE TABLE IF NOT EXISTS course_free_access (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  course_id    UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  granted_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+  granted_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  revoked_at   TIMESTAMPTZ,
+  status       VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_course_free_access_unique_active
+  ON course_free_access (user_id, course_id)
+  WHERE status = 'ACTIVE';
+
+CREATE INDEX IF NOT EXISTS idx_course_free_access_user_id ON course_free_access (user_id);
+CREATE INDEX IF NOT EXISTS idx_course_free_access_course_id ON course_free_access (course_id);
+CREATE INDEX IF NOT EXISTS idx_course_free_access_status ON course_free_access (status);
+
 -- ---------------------------------------------------------------- triggers
 DO $$
 DECLARE t TEXT;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['users','test_series','documents','questions','purchases','daily_tests','daily_test_questions'] LOOP
+  FOREACH t IN ARRAY ARRAY['users','test_series','documents','questions','purchases','daily_tests','daily_test_questions','course_free_access'] LOOP
     EXECUTE format('DROP TRIGGER IF EXISTS trg_%1$s_updated_at ON %1$s', t);
     EXECUTE format('CREATE TRIGGER trg_%1$s_updated_at BEFORE UPDATE ON %1$s FOR EACH ROW EXECUTE FUNCTION set_updated_at()', t);
   END LOOP;

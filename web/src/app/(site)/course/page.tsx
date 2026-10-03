@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/server/session';
 import { getPublishedCourse, listPublishedCourses, hasCoursePurchase } from '@/lib/server/services/courseService';
 import { listPublishedForCourse } from '@/lib/server/services/testSeriesService';
 import { razorpayConfigured } from '@/lib/server/razorpay';
+import { hasActiveFreeAccess } from '@/lib/server/services/freeAccessService';
 
 import { FreeCourseEnrollButton } from '@/components/course/FreeCourseEnrollButton';
 
@@ -41,8 +42,9 @@ export default async function CoursePage({
 
   const isFreeCourse = Boolean(course.is_free || Number(course.price) === 0);
 
-  const [hasAccess, series] = await Promise.all([
+  const [hasAccess, hasFreeGrant, series] = await Promise.all([
     user ? hasCoursePurchase(user.id, course.id) : false,
+    user ? hasActiveFreeAccess(user.id, course.id) : false,
     listPublishedForCourse(course.id, user),
   ]);
 
@@ -195,6 +197,13 @@ export default async function CoursePage({
                     </span>
                     <span className="text-xs text-muted">No payment required</span>
                   </div>
+                ) : hasFreeGrant ? (
+                  <div className="mt-2 flex items-baseline gap-2">
+                    <span className="inline-flex items-center rounded-md bg-emerald-100 px-3 py-1 text-lg font-extrabold text-emerald-800 ring-1 ring-inset ring-emerald-600/30">
+                      ₹0 (Free Access Granted)
+                    </span>
+                    <span className="text-xs text-muted">Normal Price: ₹{course.price}</span>
+                  </div>
                 ) : (
                   <div className="mt-2 flex items-baseline gap-2">
                     <span className="font-serif text-3xl font-bold text-ink">₹{course.price}</span>
@@ -212,12 +221,15 @@ export default async function CoursePage({
                       </svg>
                     </div>
                     <h3 className="font-serif text-xl font-semibold text-ink">
-                      {isFreeCourse ? 'Course Unlocked!' : 'You are already enrolled!'}
+                      {isFreeCourse ? 'Course Unlocked!' : hasFreeGrant ? 'Free Access Granted!' : 'You are already enrolled!'}
                     </h3>
                     <p className="text-xs text-muted leading-relaxed">
                       Your course access is active. Series 1 is unlocked right now. Scroll below to solve your test series!
                     </p>
                     <div className="flex flex-col gap-2 pt-2">
+                      <ButtonLink href="#series-list" size="md" className="w-full">
+                        Access Course & Solve Tests ↓
+                      </ButtonLink>
                       <ButtonLink href="/dashboard" variant="secondary" size="md" className="w-full">
                         View Dashboard Progress
                       </ButtonLink>

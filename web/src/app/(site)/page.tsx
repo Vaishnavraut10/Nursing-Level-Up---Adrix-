@@ -6,7 +6,8 @@ import { TestSeriesCard } from "@/components/test-series/TestSeriesCard";
 import { SampleQuestion } from "@/components/test-series/SampleQuestion";
 import { getCurrentUser } from "@/lib/server/session";
 import { listPublished } from "@/lib/server/services/testSeriesService";
-import { getPublishedCourse, hasCoursePurchase } from "@/lib/server/services/courseService";
+import { getPublishedCourse, listPublishedCourses, hasCoursePurchase } from "@/lib/server/services/courseService";
+import { CourseCard } from "@/components/course/CourseCard";
 import { TrustStrip } from "@/components/landing/TrustStrip";
 import { ProductShowcase } from "@/components/landing/ProductShowcase";
 import { HowItWorks } from "@/components/landing/HowItWorks";
@@ -20,11 +21,14 @@ export const dynamic = "force-dynamic";
 
 export default async function LandingPage() {
   const user = await getCurrentUser();
-  const [course, series] = await Promise.all([
+  const [course, series, courses] = await Promise.all([
     getPublishedCourse(),
     listPublished(user),
+    listPublishedCourses(),
   ]);
   const hasCourseAccess = course && user ? await hasCoursePurchase(user.id, course.id) : false;
+  const freeCourses = courses.filter((c) => c.is_free || Number(c.price) === 0);
+  const paidCourses = courses.filter((c) => !c.is_free && Number(c.price) > 0);
   const free = series.filter((s) => s.is_free);
   const paid = series.filter((s) => !s.is_free);
   const firstFree = free[0];
@@ -132,17 +136,17 @@ export default async function LandingPage() {
               </Link>
             </div>
           </ScrollReveal>
-          {free.length ? (
+          {freeCourses.length ? (
             <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {free.map((s, i) => (
-                <ScrollReveal key={s.id} stagger={i * 70}>
-                  <TestSeriesCard series={s} />
+              {freeCourses.map((c, i) => (
+                <ScrollReveal key={c.id} stagger={i * 70}>
+                  <CourseCard course={c} />
                 </ScrollReveal>
               ))}
             </div>
           ) : (
             <div className="mt-8">
-              <EmptyState title="No free tests yet" description="New practice tests are added regularly." />
+              <EmptyState title="No free courses yet" description="New practice courses are added regularly." />
             </div>
           )}
 
@@ -203,11 +207,11 @@ export default async function LandingPage() {
               </Link>
             </div>
           </ScrollReveal>
-          {paid.length ? (
+          {paidCourses.length ? (
             <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {paid.map((s, i) => (
-                <ScrollReveal key={s.id} stagger={i * 70}>
-                  <TestSeriesCard series={s} />
+              {paidCourses.map((c, i) => (
+                <ScrollReveal key={c.id} stagger={i * 70}>
+                  <CourseCard course={c} />
                 </ScrollReveal>
               ))}
             </div>

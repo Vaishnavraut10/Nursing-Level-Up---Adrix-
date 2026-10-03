@@ -46,7 +46,7 @@ export default async function DashboardPage() {
                   : 'Start your first test to begin tracking your nursing exam readiness.'}
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-3">
+            <div className="flex shrink-0 flex-wrap items-center gap-3">
               <ButtonLink
                 href="/test-series"
                 size="lg"
@@ -59,9 +59,13 @@ export default async function DashboardPage() {
                 <ButtonLink
                   href={`/tests/${inProgress[0].test_series_id}`}
                   size="lg"
-                  className="rounded-full bg-white px-6 text-brand-700 shadow-lg hover:bg-brand-50"
+                  variant="ghost"
+                  className="rounded-full border border-white/20 bg-white/10 px-6 text-white backdrop-blur-sm hover:bg-white/20"
                 >
-                  Resume Test
+                  <svg className="size-4 shrink-0 fill-current text-white" viewBox="0 0 20 20" aria-hidden="true">
+                    <path d="M6.3 2.841A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                  </svg>
+                  <span>Resume</span>
                 </ButtonLink>
               )}
             </div>

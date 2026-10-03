@@ -55,11 +55,13 @@ export function DailyTestRunner({
   const [navOpen, setNavOpen] = useState(false);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'offline'>('idle');
 
-  // Anti-cheating tab detection
+  // Anti-cheating & screen-leave states
   const [violationActive, setViolationActive] = useState(false);
   const [violationSeconds, setViolationSeconds] = useState(10);
+  const [screenshotWarning, setScreenshotWarning] = useState(false);
+  const violationStartedAtRef = useRef<number | null>(null);
   const violationTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const violationCountRef = useRef<number>(10);
+  const screenshotWarningTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const clockOffset = useRef(0);
   const dirty = useRef<Set<string>>(new Set());
@@ -69,88 +71,22 @@ export function DailyTestRunner({
   const current = questions[index];
   const storageKey = data ? `nlu-daily-attempt-${data.attempt.id}` : null;
 
-  // Anti-copying protection
-  useEffect(() => {
-    if (phase !== 'running') return;
-    const preventCopy = (e: Event) => {
-      e.preventDefault();
-    };
-    document.addEventListener('copy', preventCopy);
-    document.addEventListener('cut', preventCopy);
-    document.addEventListener('contextmenu', preventCopy);
-    document.addEventListener('selectstart', preventCopy);
-    return () => {
-      document.removeEventListener('copy', preventCopy);
-      document.removeEventListener('cut', preventCopy);
-      document.removeEventListener('contextmenu', preventCopy);
-      document.removeEventListener('selectstart', preventCopy);
-    };
-  }, [phase]);
+  const startViolation = useCallback(() => {
+    if (submittedRef.current || violationStartedAtRef.current !== null) return;
+    violationStartedAtRef.current = Date.now();
+    setViolationActive(true);
+    setViolationSeconds(10);
+  }, []);
 
-  // Tab switch anti-cheat
-  useEffect(() => {
-    if (phase !== 'running' || submittedRef.current) return;
-
-    const startViolationCountdown = () => {
-      if (submittedRef.current) return;
-      setViolationActive(true);
-    };
-
-    const cancelViolationCountdown = () => {
-      if (violationTimerRef.current) {
-        clearInterval(violationTimerRef.current);
-        violationTimerRef.current = null;
-      }
-      setViolationActive(false);
-      setViolationSeconds(10);
-      violationCountRef.current = 10;
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        startViolationCountdown();
-      } else if (document.visibilityState === 'visible') {
-        cancelViolationCountdown();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (violationTimerRef.current) {
-        clearInterval(violationTimerRef.current);
-        violationTimerRef.current = null;
-      }
-    };
-  }, [phase]);
-
-  // Start attempt
-  async function begin() {
-    setPhase('starting');
-    setError(null);
-    try {
-      const res = await api<StartResponse>(`/api/daily-tests/${dailyTestId}/start`, { method: 'POST' });
-      clockOffset.current = new Date(res.attempt.server_now).getTime() - Date.now();
-      const restored: Record<string, AnswerOption | null> = {};
-      for (const a of res.saved_answers) restored[a.questionId] = a.selectedAnswer;
-      try {
-        const local = JSON.parse(sessionStorage.getItem(`nlu-daily-attempt-${res.attempt.id}`) ?? 'null');
-        if (local?.answers) Object.assign(restored, local.answers);
-        if (local?.marked) setMarked(new Set(local.marked));
-      } catch {}
-      setAnswers(restored);
-      setVisited(new Set(res.questions[0] ? [res.questions[0].id] : []));
-      setData(res);
-      setRemaining(new Date(res.attempt.expires_at).getTime() - (Date.now() + clockOffset.current));
-      setPhase('running');
-    } catch (err) {
-      if (err instanceof ApiClientError && err.status === 401) {
-        return router.replace(`/login?next=/daily-tests/${dailyTestId}`);
-      }
-      setError(errorMessage(err));
-      setPhase('error');
+  const cancelViolation = useCallback(() => {
+    if (violationTimerRef.current) {
+      clearInterval(violationTimerRef.current);
+      violationTimerRef.current = null;
     }
-  }
+    violationStartedAtRef.current = null;
+    setViolationActive(false);
+    setViolationSeconds(10);
+  }, []);
 
   // Submit test
   const submit = useCallback(
@@ -193,9 +129,143 @@ export function DailyTestRunner({
     [answers, data, router, dailyTestId]
   );
 
-  // Tab violation timer tick
+  // ---------------------------------------------------------------- anti-screenshot & anti-copy protection
   useEffect(() => {
-    if (!violationActive || phase !== 'running' || submittedRef.current) {
+    if (phase !== 'running') return;
+
+    const showScreenshotAlert = () => {
+      setScreenshotWarning(true);
+      if (screenshotWarningTimerRef.current) clearTimeout(screenshotWarningTimerRef.current);
+      screenshotWarningTimerRef.current = setTimeout(() => {
+        setScreenshotWarning(false);
+      }, 3500);
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isInput = e.target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName);
+      const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+      const keyUpper = e.key.toUpperCase();
+
+      // PrintScreen key
+      if (e.key === 'PrintScreen' || keyUpper === 'PRINTSCREEN' || e.code === 'PrintScreen') {
+        e.preventDefault();
+        showScreenshotAlert();
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText('').catch(() => {});
+          }
+        } catch {}
+        return;
+      }
+
+      // Screenshot Shortcuts (Win+Shift+S, Cmd+Shift+3/4/5, Ctrl+Shift+S)
+      if (
+        (e.shiftKey && (isCmdOrCtrl || e.key === 'Meta' || e.key === 'Win')) ||
+        (isCmdOrCtrl && e.shiftKey && ['S', '3', '4', '5'].includes(keyUpper))
+      ) {
+        e.preventDefault();
+        showScreenshotAlert();
+        return;
+      }
+
+      // Copy / Cut / SelectAll shortcuts (Ctrl/Cmd + C, X, A) - if not in editable input field
+      if (isCmdOrCtrl && ['C', 'X', 'A'].includes(keyUpper)) {
+        if (!isInput) {
+          e.preventDefault();
+          showScreenshotAlert();
+        }
+      }
+    };
+
+    const handleCopyCutSelect = (e: Event) => {
+      const isInput = e.target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName);
+      if (!isInput) {
+        e.preventDefault();
+      }
+    };
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'PrintScreen' || e.code === 'PrintScreen') {
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText('').catch(() => {});
+          }
+        } catch {}
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('keyup', handleKeyUp, true);
+    document.addEventListener('copy', handleCopyCutSelect, true);
+    document.addEventListener('cut', handleCopyCutSelect, true);
+    document.addEventListener('contextmenu', handleContextMenu, true);
+    document.addEventListener('selectstart', handleCopyCutSelect, true);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('keyup', handleKeyUp, true);
+      document.removeEventListener('copy', handleCopyCutSelect, true);
+      document.removeEventListener('cut', handleCopyCutSelect, true);
+      document.removeEventListener('contextmenu', handleContextMenu, true);
+      document.removeEventListener('selectstart', handleCopyCutSelect, true);
+      if (screenshotWarningTimerRef.current) clearTimeout(screenshotWarningTimerRef.current);
+    };
+  }, [phase]);
+
+  // ---------------------------------------------------------------- anti-cheat tab-switch detection
+  useEffect(() => {
+    if (phase !== 'running' || submittedRef.current) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        startViolation();
+      } else if (document.visibilityState === 'visible') {
+        if (violationStartedAtRef.current !== null) {
+          const elapsedSec = Math.floor((Date.now() - violationStartedAtRef.current) / 1000);
+          if (elapsedSec >= 10) {
+            cancelViolation();
+            submit(true);
+          } else {
+            cancelViolation();
+          }
+        }
+      }
+    };
+
+    const handleWindowBlur = () => {
+      startViolation();
+    };
+
+    const handleWindowFocus = () => {
+      if (document.visibilityState === 'visible' && violationStartedAtRef.current !== null) {
+        const elapsedSec = Math.floor((Date.now() - violationStartedAtRef.current) / 1000);
+        if (elapsedSec >= 10) {
+          cancelViolation();
+          submit(true);
+        } else {
+          cancelViolation();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, [phase, startViolation, cancelViolation, submit]);
+
+  // ---------------------------------------------------------------- violation countdown timer
+  useEffect(() => {
+    if (!violationActive || phase !== 'running' || submittedRef.current || !violationStartedAtRef.current) {
       if (violationTimerRef.current) {
         clearInterval(violationTimerRef.current);
         violationTimerRef.current = null;
@@ -203,22 +273,25 @@ export function DailyTestRunner({
       return;
     }
 
-    violationCountRef.current = 10;
-    setViolationSeconds(10);
+    const checkViolation = () => {
+      if (!violationStartedAtRef.current) return;
+      const elapsedSec = Math.floor((Date.now() - violationStartedAtRef.current) / 1000);
+      const remainingSec = Math.max(0, 10 - elapsedSec);
+      setViolationSeconds(remainingSec);
 
-    violationTimerRef.current = setInterval(() => {
-      violationCountRef.current -= 1;
-      setViolationSeconds(violationCountRef.current);
-
-      if (violationCountRef.current <= 0) {
+      if (elapsedSec >= 10) {
         if (violationTimerRef.current) {
           clearInterval(violationTimerRef.current);
           violationTimerRef.current = null;
         }
+        violationStartedAtRef.current = null;
         setViolationActive(false);
         submit(true);
       }
-    }, 1000);
+    };
+
+    checkViolation();
+    violationTimerRef.current = setInterval(checkViolation, 250);
 
     return () => {
       if (violationTimerRef.current) {
@@ -227,6 +300,36 @@ export function DailyTestRunner({
       }
     };
   }, [violationActive, phase, submit]);
+
+  // Start attempt
+  async function begin() {
+    setPhase('starting');
+    setError(null);
+    try {
+      const res = await api<StartResponse>(`/api/daily-tests/${dailyTestId}/start`, { method: 'POST' });
+      clockOffset.current = new Date(res.attempt.server_now).getTime() - Date.now();
+      const restored: Record<string, AnswerOption | null> = {};
+      for (const a of res.saved_answers) restored[a.questionId] = a.selectedAnswer;
+      try {
+        const local = JSON.parse(sessionStorage.getItem(`nlu-daily-attempt-${res.attempt.id}`) ?? 'null');
+        if (local?.answers) Object.assign(restored, local.answers);
+        if (local?.marked) setMarked(new Set(local.marked));
+      } catch {}
+      setAnswers(restored);
+      setVisited(new Set(res.questions[0] ? [res.questions[0].id] : []));
+      setData(res);
+      setRemaining(new Date(res.attempt.expires_at).getTime() - (Date.now() + clockOffset.current));
+      setPhase('running');
+    } catch (err) {
+      if (err instanceof ApiClientError && err.status === 401) {
+        return router.replace(`/login?next=/daily-tests/${dailyTestId}`);
+      }
+      setError(errorMessage(err));
+      setPhase('error');
+    }
+  }
+
+
 
   // Main countdown clock
   useEffect(() => {
@@ -373,23 +476,44 @@ export function DailyTestRunner({
       onCut={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
     >
+      {/* Screenshot protection warning toast */}
+      {screenshotWarning && phase === 'running' && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 animate-bounce-in">
+          <div className="flex items-center gap-2.5 rounded-full border border-bad/30 bg-bad-50 px-5 py-2.5 text-xs font-semibold text-bad shadow-lg backdrop-blur-sm">
+            <span>⚠️</span>
+            <span>Screenshot actions are not allowed during the test.</span>
+          </div>
+        </div>
+      )}
+
       {/* Anti-cheat tab warning modal */}
       {violationActive && phase === 'running' && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-ink/75 backdrop-blur-sm p-4 animate-fade-in"
           role="alertdialog"
           aria-modal="true"
+          aria-labelledby="cheat-warning-title"
+          aria-describedby="cheat-warning-desc"
         >
           <Card className="w-full max-w-md border-2 border-bad/40 p-6 text-center shadow-2xl">
             <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-bad-50 text-2xl font-bold text-bad">
               ⚠️
             </div>
-            <h2 className="mt-4 text-2xl font-bold text-ink">Return to Test</h2>
-            <p className="mt-2 text-sm text-ink-2">You have left the test window. Please return to your test.</p>
+            <h2 id="cheat-warning-title" className="mt-4 text-2xl font-bold text-ink">
+              You left the test
+            </h2>
+            <p id="cheat-warning-desc" className="mt-2 text-sm text-ink-2">
+              Return to the test within 10 seconds or your test will be submitted automatically.
+            </p>
             <div className="mt-6 rounded-xl border border-bad/30 bg-bad-50/80 py-4 px-6">
               <div className="font-mono text-4xl font-black tabular-nums text-bad">{violationSeconds}</div>
-              <div className="mt-1 text-xs font-semibold uppercase tracking-wider text-bad">seconds remaining</div>
+              <div className="mt-1 text-xs font-semibold uppercase tracking-wider text-bad">
+                {violationSeconds === 1 ? 'second remaining' : 'seconds remaining'}
+              </div>
             </div>
+            <p className="mt-4 text-xs text-muted">
+              If you do not return to this window before the timer expires, your test will be automatically submitted.
+            </p>
           </Card>
         </div>
       )}

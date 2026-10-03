@@ -327,13 +327,6 @@ function CourseCard({ group }: { group: CourseGroup }) {
               <span className="rounded-full bg-ok-50 px-2.5 py-0.5 text-[11px] font-bold text-ok ring-1 ring-inset ring-ok/30">
                 ● FREE
               </span>
-            ) : group.discountPrice && group.discountPrice < group.price ? (
-              <div className="flex items-center gap-1.5 font-bold text-amber-800 text-xs">
-                <span className="line-through text-muted text-[11px]">₹{group.price}</span>
-                <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-800 ring-1 ring-inset ring-amber-200">
-                  ₹{group.discountPrice}
-                </span>
-              </div>
             ) : (
               <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-800 ring-1 ring-inset ring-amber-200">
                 ₹{group.price}
@@ -356,14 +349,7 @@ function CourseCard({ group }: { group: CourseGroup }) {
       </div>
 
       {/* ── Footer / Bottom Bar ── */}
-      <div className="p-5 pt-0 mt-2 flex items-center justify-between border-t border-line/50 pt-4">
-        <span className="text-xs font-semibold text-muted flex items-center gap-1.5">
-          <svg className="size-4 text-brand-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          {group.tests.length} {group.tests.length === 1 ? 'Test' : 'Tests'}
-        </span>
-
+      <div className="p-5 pt-0 mt-2 flex items-center justify-end border-t border-line/50 pt-4">
         <Link
           href={`/course?id=${group.courseId}`}
           className="inline-flex items-center gap-1 text-xs font-bold text-brand-700 hover:text-brand-800 transition-colors"

@@ -75,7 +75,6 @@ export function CourseCard({ course, tests = [] }: CourseCardProps) {
           <div className="mt-6 border-t border-line/70 pt-4">
             <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted mb-3">
               <span>Tests included</span>
-              <span className="text-brand-700 font-bold">{tests.length} Total</span>
             </div>
 
             <div className="space-y-2">
@@ -114,6 +113,21 @@ export function CourseCard({ course, tests = [] }: CourseCardProps) {
           </div>
         )}
       </div>
+
+      {/* 5. Footer CTA for Course */}
+      {tests.length === 0 && (
+        <div className="p-5 sm:p-6 pt-3 mt-4 border-t border-line/60 flex items-center justify-end">
+          <Link
+            href={`/course?id=${course.id}`}
+            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-brand-700 hover:text-brand-800 transition-all duration-200 group-hover:translate-x-0.5"
+          >
+            <span>View Course</span>
+            <svg className="size-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 8h10M9 4l4 4-4 4" />
+            </svg>
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
