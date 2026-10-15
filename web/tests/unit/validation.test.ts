@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { phoneSchema, profileUpdateSchema, questionInputSchema, submitSchema, testSeriesInputSchema } from '@/lib/validation';
+import { courseInputSchema, phoneSchema, profileUpdateSchema, promoCodeInputSchema, questionInputSchema, submitSchema, testSeriesInputSchema } from '@/lib/validation';
 
 describe('phoneSchema', () => {
   it.each([
@@ -52,3 +52,87 @@ describe('submitSchema', () => {
     expect(parsed.answers[0]).not.toHaveProperty('isCorrect');
   });
 });
+
+describe('promoCodeInputSchema', () => {
+  const valid = {
+    course_id: '00000000-0000-4000-8000-000000000001',
+    code: 'discount50',
+    discount_type: 'FIXED',
+    discount_value: 50,
+    max_uses: 100,
+    per_user_limit: 1,
+    is_active: true,
+  };
+
+  it('normalises and uppercases promo code', () => {
+    const res = promoCodeInputSchema.parse(valid);
+    expect(res.code).toBe('DISCOUNT50');
+    expect(res.discount_type).toBe('FIXED');
+    expect(res.discount_value).toBe(50);
+  });
+
+  it('accepts valid percentage promo code up to 100%', () => {
+    expect(promoCodeInputSchema.safeParse({ ...valid, discount_type: 'PERCENTAGE', discount_value: 20 }).success).toBe(true);
+    expect(promoCodeInputSchema.safeParse({ ...valid, discount_type: 'PERCENTAGE', discount_value: 100 }).success).toBe(true);
+  });
+
+  it('rejects percentage discount greater than 100%', () => {
+    expect(promoCodeInputSchema.safeParse({ ...valid, discount_type: 'PERCENTAGE', discount_value: 105 }).success).toBe(false);
+  });
+
+  it('rejects non-positive discount values', () => {
+    expect(promoCodeInputSchema.safeParse({ ...valid, discount_value: 0 }).success).toBe(false);
+    expect(promoCodeInputSchema.safeParse({ ...valid, discount_value: -10 }).success).toBe(false);
+  });
+
+  it('rejects codes with special characters', () => {
+    expect(promoCodeInputSchema.safeParse({ ...valid, code: 'SAVE 50%' }).success).toBe(false);
+  });
+});
+
+describe('courseInputSchema with multiple promo codes', () => {
+  const baseCourse = {
+    title: 'Complete Nursing Course',
+    price: 299,
+    status: 'PUBLISHED' as const,
+  };
+
+  it('accepts multiple valid promo codes with discount prices', () => {
+    const res = courseInputSchema.safeParse({
+      ...baseCourse,
+      promo_codes: [
+        { code: 'NLUP199', discount_price: 199, is_active: true },
+        { code: 'NURSING20', discount_price: 249, is_active: true },
+        { code: 'OCTOBER50', discount_price: 149, is_active: false },
+      ],
+    });
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.data.promo_codes).toHaveLength(3);
+      expect(res.data.promo_codes?.[0].code).toBe('NLUP199');
+    }
+  });
+
+  it('rejects duplicate promo codes in the same course (case-insensitive)', () => {
+    const res = courseInputSchema.safeParse({
+      ...baseCourse,
+      promo_codes: [
+        { code: 'NLUP199', discount_price: 199, is_active: true },
+        { code: 'nlup199', discount_price: 189, is_active: true },
+      ],
+    });
+    expect(res.success).toBe(false);
+  });
+
+  it('rejects promo code where discount_price >= course base price', () => {
+    const res = courseInputSchema.safeParse({
+      ...baseCourse,
+      price: 299,
+      promo_codes: [
+        { code: 'EXPENSIVE', discount_price: 300, is_active: true },
+      ],
+    });
+    expect(res.success).toBe(false);
+  });
+});
+

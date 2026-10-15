@@ -13,10 +13,10 @@ export async function Header() {
         <Logo />
         <nav className="flex items-center gap-1" aria-label="Main">
           <Link
-            href="/course"
+            href="/"
             className="flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-semibold tracking-[-0.01em] text-brand-700 hover:bg-brand-50 transition-colors"
           >
-            <span>Course</span>
+            <span>Courses</span>
           </Link>
           <Link
             href="/test-series"

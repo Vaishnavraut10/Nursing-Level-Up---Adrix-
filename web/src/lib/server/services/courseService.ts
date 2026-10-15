@@ -1,8 +1,9 @@
 import 'server-only';
 import { query, queryOne, transaction } from '../db';
 import { Errors } from '../../errors';
-import type { Course, CourseStatus, Paginated, User } from '@/types';
+import type { Course, CourseStatus, Paginated, User, PromoCode } from '@/types';
 import { logAudit } from './auditService';
+import { validatePromoCodeDetails } from './promoCodeService';
 
 const COURSE_COLUMNS = `c.id, c.title, c.description, c.price, c.discount_price, c.promo_code,
   c.currency, c.status, c.is_free, c.thumbnail_key, c.created_by, c.created_at, c.updated_at`;
@@ -99,15 +100,10 @@ export async function getAccessStartedAt(userId: string, courseId: string): Prom
 }
 
 /** Validate a promo code against the database and return the discounted price. Returns null if invalid. */
-export async function validatePromoCode(courseOrId: Course | string, code: string): Promise<number | null> {
+export async function validatePromoCode(courseOrId: Course | string, code: string, userId?: string): Promise<number | null> {
   const courseId = typeof courseOrId === 'string' ? courseOrId : courseOrId.id;
-  const row = await queryOne<{ promo_code: string | null; discount_price: number | null; is_free: boolean }>(
-    `SELECT promo_code, discount_price, is_free FROM courses WHERE id = $1`,
-    [courseId],
-  );
-  if (!row || row.is_free || !row.promo_code || row.discount_price === null) return null;
-  if (code.trim().toUpperCase() !== row.promo_code.trim().toUpperCase()) return null;
-  return Number(row.discount_price);
+  const result = await validatePromoCodeDetails(courseId, code, userId);
+  return result.valid ? result.discountedPrice : null;
 }
 
 // ---- Admin CRUD ----
@@ -157,7 +153,30 @@ export async function adminGet(id: string) {
     [id],
   );
   if (!row) throw Errors.notFound('Course');
-  return withThumbnailUrl(row);
+
+  const promoCodes = await query<PromoCode>(
+    `SELECT id, course_id, code, discount_type, discount_value, discount_price, max_uses, per_user_limit,
+            expires_at, is_active, usage_count, created_at, updated_at
+       FROM promo_codes
+      WHERE course_id = $1
+      ORDER BY created_at ASC`,
+    [id],
+  );
+
+  const course = withThumbnailUrl(row);
+  return {
+    ...course,
+    promo_codes: promoCodes,
+  };
+}
+
+export interface CoursePromoItemInput {
+  id?: string | null;
+  code: string;
+  discount_price?: number | null;
+  discount_type?: 'FIXED' | 'PERCENTAGE';
+  discount_value?: number;
+  is_active?: boolean;
 }
 
 export interface CourseInput {
@@ -169,13 +188,26 @@ export interface CourseInput {
   currency?: string;
   status?: CourseStatus;
   is_free?: boolean;
+  promo_codes?: CoursePromoItemInput[];
 }
 
 export async function create(input: CourseInput, admin: User) {
   const isFree = input.is_free ?? (input.price === 0);
   const price = isFree ? 0 : input.price;
-  const discountPrice = isFree ? null : (input.discount_price ?? null);
-  const promoCode = isFree ? null : (input.promo_code?.toUpperCase() ?? null);
+
+  const primaryPromo = input.promo_codes && input.promo_codes.length > 0
+    ? (input.promo_codes.find(p => p.is_active !== false) || input.promo_codes[0])
+    : null;
+
+  const promoCode = isFree
+    ? null
+    : (primaryPromo ? primaryPromo.code.trim().toUpperCase() : (input.promo_code?.toUpperCase() ?? null));
+
+  const discountPrice = isFree
+    ? null
+    : (primaryPromo && primaryPromo.discount_price !== undefined && primaryPromo.discount_price !== null
+        ? Number(primaryPromo.discount_price)
+        : (input.discount_price ?? null));
 
   return transaction(async (db) => {
     const row = await queryOne<{ id: string }>(
@@ -185,16 +217,54 @@ export async function create(input: CourseInput, admin: User) {
        promoCode, input.currency ?? 'INR', input.status ?? 'DRAFT', isFree, admin.id],
       db,
     );
-    await logAudit(admin.id, 'COURSE_CREATED', 'course', row!.id, { title: input.title }, db);
-    return row!.id;
+    const courseId = row!.id;
+
+    if (!isFree && input.promo_codes && input.promo_codes.length > 0) {
+      for (const p of input.promo_codes) {
+        const pCode = p.code.trim().toUpperCase();
+        if (!pCode) continue;
+        const pDiscountPrice = p.discount_price !== undefined && p.discount_price !== null
+          ? Math.max(0, Number(p.discount_price))
+          : (price - (p.discount_value ?? 0));
+        const pDiscountValue = Math.max(0, price - pDiscountPrice);
+        const pIsActive = p.is_active !== false;
+
+        await query(
+          `INSERT INTO promo_codes (course_id, code, discount_type, discount_value, discount_price, is_active)
+           VALUES ($1, $2, 'FIXED', $3, $4, $5)
+           ON CONFLICT (course_id, code) DO UPDATE
+           SET discount_price = EXCLUDED.discount_price,
+               discount_value = EXCLUDED.discount_value,
+               is_active = EXCLUDED.is_active,
+               updated_at = NOW()`,
+          [courseId, pCode, pDiscountValue, pDiscountPrice, pIsActive],
+          db,
+        );
+      }
+    }
+
+    await logAudit(admin.id, 'COURSE_CREATED', 'course', courseId, { title: input.title }, db);
+    return courseId;
   });
 }
 
 export async function update(id: string, input: CourseInput, admin: User) {
   const isFree = input.is_free ?? (input.price === 0);
   const price = isFree ? 0 : input.price;
-  const discountPrice = isFree ? null : (input.discount_price ?? null);
-  const promoCode = isFree ? null : (input.promo_code?.toUpperCase() ?? null);
+
+  const primaryPromo = input.promo_codes && input.promo_codes.length > 0
+    ? (input.promo_codes.find(p => p.is_active !== false) || input.promo_codes[0])
+    : null;
+
+  const promoCode = isFree
+    ? null
+    : (primaryPromo ? primaryPromo.code.trim().toUpperCase() : (input.promo_code?.toUpperCase() ?? null));
+
+  const discountPrice = isFree
+    ? null
+    : (primaryPromo && primaryPromo.discount_price !== undefined && primaryPromo.discount_price !== null
+        ? Number(primaryPromo.discount_price)
+        : (input.discount_price ?? null));
 
   return transaction(async (db) => {
     const existing = await queryOne<{ id: string }>(`SELECT id FROM courses WHERE id = $1 FOR UPDATE`, [id], db);
@@ -207,6 +277,54 @@ export async function update(id: string, input: CourseInput, admin: User) {
        promoCode, input.currency ?? 'INR', input.status ?? 'DRAFT', isFree],
       db,
     );
+
+    // Sync promo codes if input.promo_codes is provided and course is not free
+    if (!isFree && input.promo_codes !== undefined) {
+      const incomingIds = input.promo_codes.map(p => p.id).filter((item): item is string => !!item);
+      if (incomingIds.length > 0) {
+        await query(
+          `DELETE FROM promo_codes WHERE course_id = $1 AND id NOT IN (${incomingIds.map((_, i) => `$${i + 2}`).join(',')})`,
+          [id, ...incomingIds],
+          db,
+        );
+      } else {
+        await query(`DELETE FROM promo_codes WHERE course_id = $1`, [id], db);
+      }
+
+      for (const p of input.promo_codes) {
+        const pCode = p.code.trim().toUpperCase();
+        if (!pCode) continue;
+        const pDiscountPrice = p.discount_price !== undefined && p.discount_price !== null
+          ? Math.max(0, Number(p.discount_price))
+          : (price - (p.discount_value ?? 0));
+        const pDiscountValue = Math.max(0, price - pDiscountPrice);
+        const pIsActive = p.is_active !== false;
+
+        if (p.id) {
+          await query(
+            `UPDATE promo_codes
+                SET code = $2, discount_type = 'FIXED', discount_value = $3, discount_price = $4,
+                    is_active = $5, updated_at = NOW()
+              WHERE id = $1 AND course_id = $6`,
+            [p.id, pCode, pDiscountValue, pDiscountPrice, pIsActive, id],
+            db,
+          );
+        } else {
+          await query(
+            `INSERT INTO promo_codes (course_id, code, discount_type, discount_value, discount_price, is_active)
+             VALUES ($1, $2, 'FIXED', $3, $4, $5)
+             ON CONFLICT (course_id, code) DO UPDATE
+             SET discount_price = EXCLUDED.discount_price,
+                 discount_value = EXCLUDED.discount_value,
+                 is_active = EXCLUDED.is_active,
+                 updated_at = NOW()`,
+            [id, pCode, pDiscountValue, pDiscountPrice, pIsActive],
+            db,
+          );
+        }
+      }
+    }
+
     await logAudit(admin.id, 'COURSE_UPDATED', 'course', id, { fields: Object.keys(input) }, db);
   });
 }

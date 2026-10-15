@@ -277,6 +277,12 @@ export function TestRunner({
       if (err instanceof ApiClientError && err.code === 'PURCHASE_REQUIRED') return router.replace(`/unlock/${testSeriesId}`);
       if (err instanceof ApiClientError && err.code === 'PROFILE_INCOMPLETE') return router.replace(`/complete-profile?next=/tests/${testSeriesId}`);
       if (err instanceof ApiClientError && err.status === 401) return router.replace(`/login?next=/tests/${testSeriesId}`);
+      if (err instanceof ApiClientError && err.code === 'ATTEMPT_ALREADY_USED') {
+        const attemptId = (err.details as any)?.attemptId;
+        if (attemptId) {
+          return router.replace(`/results/${attemptId}`);
+        }
+      }
       setError(errorMessage(err));
       setPhase('error');
     }

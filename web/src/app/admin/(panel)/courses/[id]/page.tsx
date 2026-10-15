@@ -7,6 +7,8 @@ import { adminGet, getCourseTestSeries } from '@/lib/server/services/courseServi
 import { listForEntity } from '@/lib/server/services/auditService';
 import { formatDateTime, formatMoney } from '@/lib/format';
 import { uuidSchema } from '@/lib/validation';
+import { adminListPromoCodes } from '@/lib/server/services/promoCodeService';
+import { PromoCodeManager } from '@/components/admin/PromoCodeManager';
 
 export const metadata = { title: 'Course Details' };
 export const dynamic = 'force-dynamic';
@@ -21,9 +23,10 @@ export default async function AdminCourseDetailPage({
   const course = await adminGet(id).catch(() => null);
   if (!course) notFound();
 
-  const [seriesList, history] = await Promise.all([
+  const [seriesList, history, promoCodes] = await Promise.all([
     getCourseTestSeries(id),
     listForEntity('course', id),
+    adminListPromoCodes(id),
   ]);
 
   const base = `/api/admin/courses/${id}`;
@@ -184,6 +187,15 @@ export default async function AdminCourseDetailPage({
                 {course.description}
               </p>
             </Card>
+          )}
+
+          {!course.is_free && Number(course.price) > 0 && (
+            <PromoCodeManager
+              courseId={course.id}
+              courseTitle={course.title}
+              coursePrice={Number(course.price)}
+              initialPromoCodes={promoCodes}
+            />
           )}
         </div>
 

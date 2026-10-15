@@ -4,6 +4,7 @@ import { ApiError, Errors } from '../../errors';
 import type { Purchase, User } from '@/types';
 import * as razorpay from '../razorpay';
 import * as courseService from './courseService';
+import { recordPromoCodeUsage } from './promoCodeService';
 
 const PURCHASE_COLUMNS = `p.id, p.user_id, p.test_series_id, p.course_id, p.amount, p.currency, p.provider, p.order_id,
   p.payment_id, p.promo_code_used, p.status, p.created_at, p.updated_at`;
@@ -37,7 +38,7 @@ export async function createCourseCheckout(user: User, courseId: string, promoCo
   let finalPrice = course.price;
   let usedPromo: string | null = null;
   if (promoCode) {
-    const discounted = await courseService.validatePromoCode(course, promoCode);
+    const discounted = await courseService.validatePromoCode(course, promoCode, user.id);
     if (discounted !== null) {
       finalPrice = discounted;
       usedPromo = promoCode.trim().toUpperCase();
@@ -89,13 +90,17 @@ export async function createCourseCheckout(user: User, courseId: string, promoCo
  * Idempotent: repeated calls for an already-successful order are no-ops.
  */
 export async function markSuccess(orderId: string, paymentId: string, db?: Queryable) {
-  return queryOne<Purchase>(
+  const row = await queryOne<Purchase>(
     `UPDATE purchases AS p SET status = 'SUCCESS', payment_id = $2, failure_reason = NULL
       WHERE p.order_id = $1 AND p.status IN ('PENDING', 'FAILED', 'CANCELLED')
       RETURNING ${PURCHASE_COLUMNS}`,
     [orderId, paymentId],
     db,
   );
+  if (row && row.promo_code_used && row.course_id) {
+    await recordPromoCodeUsage(row.course_id, row.promo_code_used, db);
+  }
+  return row;
 }
 
 /** POST /api/payments/razorpay/verify: HMAC-verified Checkout response → SUCCESS. */

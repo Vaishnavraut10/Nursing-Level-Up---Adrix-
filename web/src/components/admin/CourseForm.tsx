@@ -9,6 +9,13 @@ import type { Course } from '@/types';
 
 import { CourseThumbnailUpload } from './CourseThumbnailUpload';
 
+interface PromoRow {
+  id?: string | null;
+  code: string;
+  discount_price: string;
+  is_active: boolean;
+}
+
 export function CourseForm({ initial }: { initial?: Course }) {
   const router = useRouter();
   const editing = Boolean(initial);
@@ -22,6 +29,39 @@ export function CourseForm({ initial }: { initial?: Course }) {
     promo_code: initial?.promo_code ?? 'NLUP199',
     status: initial?.status ?? 'PUBLISHED',
   });
+
+  const [promoCodes, setPromoCodes] = useState<PromoRow[]>(() => {
+    if (initial?.promo_codes && initial.promo_codes.length > 0) {
+      return initial.promo_codes.map((p) => ({
+        id: p.id,
+        code: p.code,
+        discount_price:
+          p.discount_price !== null && p.discount_price !== undefined
+            ? String(p.discount_price)
+            : (Number(initial.price) - Number(p.discount_value) > 0
+                ? String(Number(initial.price) - Number(p.discount_value))
+                : '199'),
+        is_active: p.is_active ?? true,
+      }));
+    }
+    if (initial?.promo_code) {
+      return [
+        {
+          code: initial.promo_code,
+          discount_price: initial.discount_price ? String(initial.discount_price) : '199',
+          is_active: true,
+        },
+      ];
+    }
+    return [
+      {
+        code: 'NLUP199',
+        discount_price: '199',
+        is_active: true,
+      },
+    ];
+  });
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -30,18 +70,87 @@ export function CourseForm({ initial }: { initial?: Course }) {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => setValues((v) => ({ ...v, [k]: e.target.value }));
 
+  const addPromoRow = () => {
+    setPromoCodes((prev) => [
+      ...prev,
+      {
+        code: '',
+        discount_price: values.discount_price || '199',
+        is_active: true,
+      },
+    ]);
+  };
+
+  const updatePromoRow = (index: number, patch: Partial<PromoRow>) => {
+    setPromoCodes((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, ...patch } : row)),
+    );
+  };
+
+  const removePromoRow = (index: number) => {
+    setPromoCodes((prev) => prev.filter((_, i) => i !== index));
+  };
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const isFree = courseType === 'FREE';
+    const basePrice = isFree ? 0 : Number(values.price);
+
+    // Client-side validations for promo codes if course is paid
+    if (!isFree) {
+      const fieldValidationErrors: Record<string, string> = {};
+      const seenCodes = new Set<string>();
+
+      promoCodes.forEach((p, idx) => {
+        const trimmed = p.code.trim().toUpperCase();
+        if (!trimmed) {
+          fieldValidationErrors[`promo_codes.${idx}.code`] = 'Promo code is required';
+        } else if (seenCodes.has(trimmed)) {
+          fieldValidationErrors[`promo_codes.${idx}.code`] = `Duplicate promo code '${trimmed}'`;
+        } else {
+          seenCodes.add(trimmed);
+        }
+
+        const dp = Number(p.discount_price);
+        if (p.discount_price === '' || isNaN(dp) || dp < 0) {
+          fieldValidationErrors[`promo_codes.${idx}.discount_price`] = 'Discount price must be ≥ ₹0';
+        } else if (basePrice > 0 && dp >= basePrice) {
+          fieldValidationErrors[`promo_codes.${idx}.discount_price`] = 'Discount price must be less than base price';
+        }
+      });
+
+      if (Object.keys(fieldValidationErrors).length > 0) {
+        setErrors(fieldValidationErrors);
+        setFormError('Please resolve the promo code validation errors below.');
+        return;
+      }
+    }
+
+    const formattedPromoCodes = isFree
+      ? []
+      : promoCodes
+          .filter((p) => p.code.trim().length > 0)
+          .map((p) => ({
+            id: p.id || null,
+            code: p.code.trim().toUpperCase(),
+            discount_price: Number(p.discount_price),
+            is_active: p.is_active,
+          }));
+
+    const primaryPromo = formattedPromoCodes.find((p) => p.is_active) || formattedPromoCodes[0];
+
     const payload = {
       title: values.title,
       description: values.description || null,
-      price: isFree ? 0 : Number(values.price),
-      discount_price: isFree ? null : (values.discount_price ? Number(values.discount_price) : null),
-      promo_code: isFree ? null : (values.promo_code?.trim() || null),
+      price: basePrice,
+      discount_price: isFree
+        ? null
+        : (primaryPromo?.discount_price ?? (values.discount_price ? Number(values.discount_price) : null)),
+      promo_code: isFree ? null : (primaryPromo?.code ?? (values.promo_code?.trim() || null)),
       currency: 'INR' as const,
       status: values.status as Course['status'],
       is_free: isFree,
+      promo_codes: isFree ? undefined : formattedPromoCodes,
     };
 
     const check = courseInputSchema.safeParse(payload);
@@ -167,58 +276,152 @@ export function CourseForm({ initial }: { initial?: Course }) {
             </div>
           </div>
         ) : (
-          <div className="grid gap-5 sm:grid-cols-3">
-            <Field
-              label="Base Price (INR)"
-              htmlFor="price"
-              error={errors.price}
-              required
-              hint="Original course fee without coupon (default ₹299)."
-            >
-              <Input
-                id="price"
-                type="number"
-                min={0}
-                step="1"
-                value={values.price}
-                onChange={set('price')}
-                aria-invalid={Boolean(errors.price)}
-              />
-            </Field>
+          <div className="space-y-5">
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field
+                label="Base Price (INR)"
+                htmlFor="price"
+                error={errors.price}
+                required
+                hint="Original course fee without coupon (default ₹299)."
+              >
+                <Input
+                  id="price"
+                  type="number"
+                  min={0}
+                  step="1"
+                  value={values.price}
+                  onChange={set('price')}
+                  aria-invalid={Boolean(errors.price)}
+                />
+              </Field>
 
-            <Field
-              label="Discount Price (INR)"
-              htmlFor="discount_price"
-              error={errors.discount_price}
-              hint="Price when valid promo code is applied (default ₹199)."
-            >
-              <Input
-                id="discount_price"
-                type="number"
-                min={0}
-                step="1"
-                value={values.discount_price}
-                onChange={set('discount_price')}
-                aria-invalid={Boolean(errors.discount_price)}
-              />
-            </Field>
+              <Field
+                label="Discount Price (INR)"
+                htmlFor="discount_price"
+                error={errors.discount_price}
+                hint="Default discounted course price displayed on course cards."
+              >
+                <Input
+                  id="discount_price"
+                  type="number"
+                  min={0}
+                  step="1"
+                  value={values.discount_price}
+                  onChange={set('discount_price')}
+                  aria-invalid={Boolean(errors.discount_price)}
+                />
+              </Field>
+            </div>
 
-            <Field
-              label="Promo Code"
-              htmlFor="promo_code"
-              error={errors.promo_code}
-              hint="Students enter this code at checkout (e.g. NLUP199)."
-            >
-              <Input
-                id="promo_code"
-                type="text"
-                value={values.promo_code}
-                onChange={set('promo_code')}
-                placeholder="NLUP199"
-                className="uppercase"
-                aria-invalid={Boolean(errors.promo_code)}
-              />
-            </Field>
+            {/* Dedicated Promo Codes Section */}
+            <div className="rounded-xl border border-line bg-surface-2/30 p-4 sm:p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-ink">Promo Codes</h3>
+                  <p className="text-xs text-muted">Create multiple promo codes for this course.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={addPromoRow}
+                  className="self-start sm:self-auto"
+                >
+                  + Add Promo Code
+                </Button>
+              </div>
+
+              {errors.promo_codes && (
+                <div className="rounded-lg border border-bad/20 bg-bad-50 p-3 text-xs text-bad">
+                  {errors.promo_codes}
+                </div>
+              )}
+
+              {promoCodes.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-line-strong/60 p-6 text-center text-xs text-muted">
+                  No promo codes for this course yet. Click <strong>+ Add Promo Code</strong> above to add one.
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-line bg-surface">
+                  <table className="w-full min-w-[500px] text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-line bg-sunken/60 text-xs font-semibold uppercase tracking-wider text-muted">
+                        <th className="px-4 py-2.5">Promo Code</th>
+                        <th className="px-4 py-2.5">Discount Price (INR)</th>
+                        <th className="px-4 py-2.5">Status</th>
+                        <th className="px-4 py-2.5 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      {promoCodes.map((row, idx) => {
+                        const rowCodeError = errors[`promo_codes.${idx}.code`];
+                        const rowPriceError = errors[`promo_codes.${idx}.discount_price`];
+                        return (
+                          <tr key={row.id || idx} className="hover:bg-sunken/30 transition-colors">
+                            <td className="px-4 py-3 align-top">
+                              <div className="space-y-1">
+                                <Input
+                                  type="text"
+                                  value={row.code}
+                                  onChange={(e) => updatePromoRow(idx, { code: e.target.value.toUpperCase() })}
+                                  placeholder="e.g. NLUP199"
+                                  className="h-9 uppercase font-mono font-medium max-w-[180px]"
+                                  aria-invalid={Boolean(rowCodeError)}
+                                />
+                                {rowCodeError && <p className="text-xs text-bad">{rowCodeError}</p>}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 align-top">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1.5 max-w-[160px]">
+                                  <span className="text-sm font-medium text-muted">₹</span>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    step="1"
+                                    value={row.discount_price}
+                                    onChange={(e) => updatePromoRow(idx, { discount_price: e.target.value })}
+                                    placeholder="199"
+                                    className="h-9"
+                                    aria-invalid={Boolean(rowPriceError)}
+                                  />
+                                </div>
+                                {rowPriceError && <p className="text-xs text-bad">{rowPriceError}</p>}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 align-top">
+                              <label className="inline-flex items-center gap-2 cursor-pointer pt-1.5 select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={row.is_active}
+                                  onChange={(e) => updatePromoRow(idx, { is_active: e.target.checked })}
+                                  className="size-4 rounded text-brand-600 focus:ring-brand-500 border-line-strong"
+                                />
+                                <span className={`text-xs font-medium ${row.is_active ? 'text-ok font-semibold' : 'text-muted'}`}>
+                                  {row.is_active ? 'Enabled' : 'Disabled'}
+                                </span>
+                              </label>
+                            </td>
+                            <td className="px-4 py-3 align-top text-right">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removePromoRow(idx)}
+                                className="text-bad hover:bg-bad-50 hover:text-bad"
+                              >
+                                Remove
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

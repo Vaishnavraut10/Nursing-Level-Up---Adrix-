@@ -1,7 +1,7 @@
 import 'server-only';
 import { query, queryOne, transaction } from '../db';
 import { ApiError, Errors } from '../../errors';
-import type { AccessState, Paginated, PublicTestSeries, SeriesReleaseState, TestSeries, TestStatus, User } from '@/types';
+import type { AccessState, AttemptStatus, Paginated, PublicTestSeries, SeriesReleaseState, TestSeries, TestStatus, User } from '@/types';
 import type { TestSeriesInput } from '../../validation';
 import { logAudit } from './auditService';
 import * as courseService from './courseService';
@@ -92,6 +92,7 @@ function toPublic(
   viewer: User | null,
   hasCourseAccess: boolean,
   accessStartedAt: Date | null,
+  userAttempt?: { id: string; status: AttemptStatus; score: number | null; percentage: number | null } | null,
 ): PublicTestSeries {
   const isFree = row.course_id
     ? Boolean(row.course_is_free || (row.course_price !== undefined && Number(row.course_price) === 0))
@@ -135,6 +136,7 @@ function toPublic(
     release_after_days: row.release_after_days,
     release_state: releaseState,
     releases_at: releasesAt,
+    user_attempt: userAttempt ?? null,
   };
 }
 
@@ -149,6 +151,27 @@ export async function listPublished(viewer: User | null): Promise<PublicTestSeri
       ORDER BY ts.release_after_days ASC, ts.title`,
   );
 
+  const attemptsMap = new Map<string, { id: string; status: AttemptStatus; score: number | null; percentage: number | null }>();
+  if (viewer && rows.length > 0) {
+    const ids = rows.map((r) => r.id);
+    const attempts = await query<{
+      id: string;
+      test_series_id: string;
+      status: AttemptStatus;
+      score: number | null;
+      percentage: number | null;
+    }>(
+      `SELECT DISTINCT ON (test_series_id) id, test_series_id, status, score, percentage
+         FROM attempts
+        WHERE user_id = $1 AND test_series_id = ANY($2::uuid[])
+        ORDER BY test_series_id, started_at DESC`,
+      [viewer.id, ids],
+    );
+    for (const a of attempts) {
+      attemptsMap.set(a.test_series_id, a);
+    }
+  }
+
   const defaultCourse = await courseService.getPublishedCourse();
   const result: PublicTestSeries[] = [];
 
@@ -162,7 +185,7 @@ export async function listPublished(viewer: User | null): Promise<PublicTestSeri
         accessStartedAt = await courseService.getAccessStartedAt(viewer.id, courseId);
       }
     }
-    result.push(toPublic(r, viewer, hasCourseAccess, accessStartedAt));
+    result.push(toPublic(r, viewer, hasCourseAccess, accessStartedAt, attemptsMap.get(r.id)));
   }
   return result;
 }
@@ -188,7 +211,29 @@ export async function listPublishedForCourse(courseId: string, viewer: User | nu
       ORDER BY ts.release_after_days ASC, ts.created_at ASC`,
     [courseId],
   );
-  return rows.map((r) => toPublic(r, viewer, hasCourseAccess, accessStartedAt));
+
+  const attemptsMap = new Map<string, { id: string; status: AttemptStatus; score: number | null; percentage: number | null }>();
+  if (viewer && rows.length > 0) {
+    const ids = rows.map((r) => r.id);
+    const attempts = await query<{
+      id: string;
+      test_series_id: string;
+      status: AttemptStatus;
+      score: number | null;
+      percentage: number | null;
+    }>(
+      `SELECT DISTINCT ON (test_series_id) id, test_series_id, status, score, percentage
+         FROM attempts
+        WHERE user_id = $1 AND test_series_id = ANY($2::uuid[])
+        ORDER BY test_series_id, started_at DESC`,
+      [viewer.id, ids],
+    );
+    for (const a of attempts) {
+      attemptsMap.set(a.test_series_id, a);
+    }
+  }
+
+  return rows.map((r) => toPublic(r, viewer, hasCourseAccess, accessStartedAt, attemptsMap.get(r.id)));
 }
 
 export async function getPublished(id: string, viewer: User | null): Promise<PublicTestSeries | null> {
@@ -213,7 +258,23 @@ export async function getPublished(id: string, viewer: User | null): Promise<Pub
     }
   }
 
-  return toPublic(row, viewer, hasCourseAccess, accessStartedAt);
+  let userAttempt: { id: string; status: AttemptStatus; score: number | null; percentage: number | null } | null = null;
+  if (viewer) {
+    const a = await queryOne<{
+      id: string;
+      status: AttemptStatus;
+      score: number | null;
+      percentage: number | null;
+    }>(
+      `SELECT id, status, score, percentage FROM attempts
+        WHERE user_id = $1 AND test_series_id = $2
+        ORDER BY started_at DESC LIMIT 1`,
+      [viewer.id, id],
+    );
+    if (a) userAttempt = a;
+  }
+
+  return toPublic(row, viewer, hasCourseAccess, accessStartedAt, userAttempt);
 }
 
 /** Check if a user has access to a specific test series (considering drip schedule). */

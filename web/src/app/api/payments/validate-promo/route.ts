@@ -1,6 +1,6 @@
 import { route, ok, readJson, parseId } from '@/lib/server/http';
 import { getCurrentUser } from '@/lib/server/session';
-import { validatePromoCode } from '@/lib/server/services/courseService';
+import { validatePromoCodeDetails } from '@/lib/server/services/promoCodeService';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -11,22 +11,26 @@ const schema = z.object({
 });
 
 export const POST = route(async (req) => {
-  await getCurrentUser(); // Ensure request is authenticated or valid
+  const user = await getCurrentUser();
   const body = await readJson(req, schema);
   const courseId = parseId(body.courseId, 'Course');
 
-  const discountPrice = await validatePromoCode(courseId, body.promoCode);
+  const result = await validatePromoCodeDetails(courseId, body.promoCode, user?.id);
 
-  if (discountPrice !== null) {
+  if (result.valid) {
     return ok({
       valid: true,
-      discountPrice,
-      promoCode: body.promoCode.trim().toUpperCase(),
+      discountPrice: result.discountedPrice,
+      originalPrice: result.originalPrice,
+      discountAmount: result.discountAmount,
+      discountType: result.discountType,
+      discountValue: result.discountValue,
+      promoCode: result.code,
     });
   }
 
   return ok({
     valid: false,
-    message: 'Invalid promo code. Please check and try again.',
+    message: result.message,
   });
 });

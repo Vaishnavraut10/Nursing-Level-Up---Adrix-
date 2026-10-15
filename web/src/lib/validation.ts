@@ -61,6 +61,21 @@ export type TestSeriesInput = z.infer<typeof testSeriesInputSchema>;
 
 export const courseStatusSchema = z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']);
 
+export const coursePromoItemSchema = z.object({
+  id: z.string().uuid().optional().nullable().or(z.literal('')).transform((v) => v || null),
+  code: z
+    .string()
+    .trim()
+    .min(2, 'Code must be at least 2 characters')
+    .max(50, 'Code must be at most 50 characters')
+    .regex(/^[A-Za-z0-9_-]+$/, 'Promo code can only contain letters, numbers, dashes and underscores')
+    .transform((v) => v.toUpperCase()),
+  discount_price: z.coerce.number().min(0, 'Discount price must be 0 or more').max(100000, 'Discount price is too high'),
+  is_active: z.boolean().default(true),
+});
+
+export type CoursePromoItem = z.infer<typeof coursePromoItemSchema>;
+
 export const courseInputSchema = z
   .object({
     title: z.string().trim().min(1, 'Title is required').max(200, 'Title must be at most 200 characters'),
@@ -69,12 +84,28 @@ export const courseInputSchema = z
     price: z.coerce.number().min(0, 'Price must be 0 or more').max(100000, 'Price is too high').default(299),
     discount_price: z.coerce.number().min(0).max(100000).optional().nullable(),
     promo_code: z.string().trim().max(50).optional().nullable().transform((v) => (v ? v.toUpperCase() : null)),
+    promo_codes: z.array(coursePromoItemSchema).optional(),
     currency: z.literal('INR').default('INR'),
     status: courseStatusSchema.default('DRAFT'),
   })
   .refine((v) => !v.is_free || v.price === 0, { message: 'Free courses must have price 0', path: ['price'] })
   .refine((v) => !v.is_free || !v.discount_price, { message: 'Free courses cannot have a discount price', path: ['discount_price'] })
-  .refine((v) => !v.is_free || !v.promo_code, { message: 'Free courses cannot have a promo code', path: ['promo_code'] });
+  .refine((v) => !v.is_free || !v.promo_code, { message: 'Free courses cannot have a promo code', path: ['promo_code'] })
+  .refine(
+    (v) => {
+      if (v.is_free || !v.promo_codes || v.promo_codes.length === 0) return true;
+      return v.promo_codes.every((p) => p.discount_price < v.price);
+    },
+    { message: 'Discount price must be less than base price', path: ['promo_codes'] },
+  )
+  .refine(
+    (v) => {
+      if (!v.promo_codes || v.promo_codes.length <= 1) return true;
+      const codes = v.promo_codes.map((p) => p.code.toUpperCase());
+      return new Set(codes).size === codes.length;
+    },
+    { message: 'Duplicate promo codes are not allowed in the same course', path: ['promo_codes'] },
+  );
 
 export type CourseInput = z.infer<typeof courseInputSchema>;
 
@@ -179,5 +210,43 @@ export const bulkDailyQuestionsSchema = z.object({
 });
 
 export type DailyQuestionBulkItem = z.infer<typeof dailyQuestionBulkItemSchema>;
+
+export const promoDiscountTypeSchema = z.enum(['PERCENTAGE', 'FIXED']);
+
+export const promoCodeInputSchema = z
+  .object({
+    course_id: uuidSchema,
+    code: z
+      .string()
+      .trim()
+      .min(2, 'Code must be at least 2 characters')
+      .max(50, 'Code must be at most 50 characters')
+      .regex(/^[A-Za-z0-9_-]+$/, 'Promo code can only contain letters, numbers, dashes and underscores')
+      .transform((v) => v.toUpperCase()),
+    discount_type: promoDiscountTypeSchema.default('FIXED'),
+    discount_value: z.coerce.number().positive('Discount value must be greater than 0'),
+    max_uses: z.coerce.number().int().positive().optional().nullable().transform((v) => v || null),
+    per_user_limit: z.coerce.number().int().min(1).default(1),
+    expires_at: z
+      .string()
+      .optional()
+      .nullable()
+      .transform((v) => (v && v.trim() ? new Date(v).toISOString() : null)),
+    is_active: z.boolean().default(true),
+  })
+  .refine(
+    (data) => {
+      if (data.discount_type === 'PERCENTAGE') {
+        return data.discount_value <= 100;
+      }
+      return true;
+    },
+    {
+      message: 'Percentage discount cannot exceed 100%',
+      path: ['discount_value'],
+    },
+  );
+
+export type PromoCodeInput = z.infer<typeof promoCodeInputSchema>;
 
 

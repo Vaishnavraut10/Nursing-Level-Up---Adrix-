@@ -179,6 +179,22 @@ export default async function TestSeriesDetailPage({ params }: { params: Promise
             <div className="mt-5 space-y-2">
               {!ready ? (
                 <p className="rounded-lg bg-sunken p-3 text-sm text-muted">Questions are being added. Check back soon.</p>
+              ) : user?.role !== 'ADMIN' && attempts.some((a) => a.status === 'COMPLETED') ? (
+                <div className="space-y-3">
+                  <div className="rounded-xl bg-brand-50 p-3 text-center border border-brand-200">
+                    <p className="text-xs font-semibold text-brand-800">Test Completed</p>
+                    <p className="mt-0.5 text-xs text-brand-700">
+                      You scored {attempts.find((a) => a.status === 'COMPLETED')?.percentage ?? 0}%. Only 1 attempt is allowed per student.
+                    </p>
+                  </div>
+                  <ButtonLink
+                    href={`/results/${attempts.find((a) => a.status === 'COMPLETED')!.id}`}
+                    size="lg"
+                    className="w-full"
+                  >
+                    View Your Results →
+                  </ButtonLink>
+                </div>
               ) : inProgress && series.has_access ? (
                 <ButtonLink href={`/tests/${series.id}`} size="lg" className="w-full">
                   Resume Test

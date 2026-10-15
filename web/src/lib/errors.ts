@@ -16,6 +16,7 @@ export type ErrorCode =
   | 'PAYLOAD_TOO_LARGE'
   | 'UNSUPPORTED_MEDIA_TYPE'
   | 'UPSTREAM_ERROR'
+  | 'ATTEMPT_ALREADY_USED'
   | 'INTERNAL_ERROR';
 
 export class ApiError extends Error {

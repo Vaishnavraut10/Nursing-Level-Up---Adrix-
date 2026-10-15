@@ -135,7 +135,7 @@ export function LoginPanel({
         email,
         password,
         redirect: false,
-        redirectTo,
+        redirectTo: '/',
       });
 
       if (signInRes?.error) {
@@ -145,7 +145,8 @@ export function LoginPanel({
         return;
       }
 
-      router.push(redirectTo);
+      // Redirect student directly to main course listing page (/)
+      router.push('/');
       router.refresh();
     } catch {
       setFormError('Something went wrong. Please try again.');

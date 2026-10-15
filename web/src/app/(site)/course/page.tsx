@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ButtonLink, Card, Container } from '@/components/ui';
 import { Checkout } from '@/components/payments/Checkout';
 import { CourseTestSeriesList } from '@/components/course/CourseTestSeriesList';
+import { ScrollToTestSeriesButton } from '@/components/course/ScrollToTestSeriesButton';
 import { getCurrentUser } from '@/lib/server/session';
 import { getPublishedCourse, listPublishedCourses, hasCoursePurchase } from '@/lib/server/services/courseService';
 import { listPublishedForCourse } from '@/lib/server/services/testSeriesService';
@@ -10,6 +11,8 @@ import { razorpayConfigured } from '@/lib/server/razorpay';
 import { hasActiveFreeAccess } from '@/lib/server/services/freeAccessService';
 
 import { FreeCourseEnrollButton } from '@/components/course/FreeCourseEnrollButton';
+
+import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
   title: 'Nursing Level Up Complete Course — 200+ Test Series',
@@ -24,17 +27,21 @@ export default async function CoursePage({
   searchParams?: Promise<{ id?: string }>;
 }) {
   const sp = searchParams ? await searchParams : {};
+  if (!sp.id) {
+    redirect('/');
+  }
+
   const user = await getCurrentUser();
   const allCourses = await listPublishedCourses();
-  const course = (sp.id ? allCourses.find((c) => c.id === sp.id) : null) ?? allCourses[0] ?? null;
+  const course = allCourses.find((c) => c.id === sp.id) ?? null;
 
   if (!course) {
     return (
       <Container className="py-16 text-center">
-        <h1 className="font-serif text-3xl font-semibold">Course Coming Soon</h1>
-        <p className="mt-2 text-muted">The complete course is being prepared. Check back shortly.</p>
-        <ButtonLink href="/test-series" className="mt-6" size="md">
-          Browse Free Tests
+        <h1 className="font-serif text-3xl font-semibold">Course Not Found</h1>
+        <p className="mt-2 text-muted">The requested course could not be found or has not been published.</p>
+        <ButtonLink href="/" className="mt-6" size="md">
+          Browse All Courses
         </ButtonLink>
       </Container>
     );
@@ -62,7 +69,7 @@ export default async function CoursePage({
 
       <Container className="relative z-10 max-w-5xl">
         <nav className="mb-6 text-sm text-muted" aria-label="Breadcrumb">
-          <Link href="/test-series" className="hover:text-brand-600">Test series</Link>
+          <Link href="/" className="hover:text-brand-600">Courses</Link>
           <span className="mx-2" aria-hidden>/</span>
           <span className="text-ink-2">{course.title}</span>
         </nav>
@@ -227,9 +234,9 @@ export default async function CoursePage({
                       Your course access is active. Series 1 is unlocked right now. Scroll below to solve your test series!
                     </p>
                     <div className="flex flex-col gap-2 pt-2">
-                      <ButtonLink href="#series-list" size="md" className="w-full">
+                      <ScrollToTestSeriesButton size="md" className="w-full">
                         Access Course & Solve Tests ↓
-                      </ButtonLink>
+                      </ScrollToTestSeriesButton>
                       <ButtonLink href="/dashboard" variant="secondary" size="md" className="w-full">
                         View Dashboard Progress
                       </ButtonLink>
@@ -240,7 +247,7 @@ export default async function CoursePage({
                     <p className="text-sm text-muted">
                       Please log in or create an account to {isFreeCourse ? 'access this free course' : 'enroll in the course'} and activate your test schedule.
                     </p>
-                    <ButtonLink href={`/login?next=${encodeURIComponent('/course')}`} size="lg" className="w-full">
+                    <ButtonLink href={`/login?next=${encodeURIComponent('/')}`} size="lg" className="w-full">
                       Login to {isFreeCourse ? 'Access Course' : 'Enroll'}
                     </ButtonLink>
                   </div>
@@ -261,7 +268,11 @@ export default async function CoursePage({
         </div>
 
         {/* Listed Test Series with Immediate "Solve Test" Capability */}
-        <section className="mt-14 border-t border-line/70 pt-10">
+        <section
+          id="course-test-series"
+          className="mt-14 border-t border-line/70 pt-10 scroll-mt-20 sm:scroll-mt-24"
+          style={{ scrollMarginTop: '5.5rem' }}
+        >
           <CourseTestSeriesList series={series} hasCourseAccess={hasAccess} />
         </section>
       </Container>

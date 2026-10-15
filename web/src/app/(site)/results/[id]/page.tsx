@@ -39,7 +39,6 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
     <Container className="max-w-4xl py-12">
       <ScoreSummary result={result} />
       <div className="mt-6 flex flex-wrap gap-2">
-        <ButtonLink href={`/tests/${result.test_series_id}`}>Retake test</ButtonLink>
         <ButtonLink href="/dashboard" variant="secondary">Back to dashboard</ButtonLink>
       </div>
       <h2 className="mb-4 mt-12 text-2xl font-semibold">Question-wise review</h2>

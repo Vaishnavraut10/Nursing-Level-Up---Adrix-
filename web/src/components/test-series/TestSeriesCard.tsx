@@ -130,10 +130,13 @@ function getSubjectIcon(title: string) {
 /* ── Free card ── */
 export function FreeSeriesCard({ series }: { series: PublicTestSeries }) {
   const subject = getSubjectIcon(series.title);
+  const isCompleted = series.user_attempt?.status === 'COMPLETED';
+  const isInProgress = series.user_attempt?.status === 'IN_PROGRESS';
+  const targetUrl = isCompleted ? `/results/${series.user_attempt!.id}` : `/tests/${series.id}`;
 
   return (
     <Link
-      href={`/tests/${series.id}`}
+      href={targetUrl}
       className="group relative flex h-full flex-col overflow-hidden rounded-[1.25rem] border border-line/75 bg-surface shadow-xs transition-all duration-250 hover:-translate-y-1 hover:border-brand-300/80 hover:shadow-[0_14px_38px_rgba(0,0,0,0.07),0_0_0_1px_rgba(31,122,115,0.12)]"
     >
       {/* Top teal accent stripe */}
@@ -163,10 +166,22 @@ export function FreeSeriesCard({ series }: { series: PublicTestSeries }) {
             </span>
           </div>
 
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-ok-50 px-2.5 py-0.5 text-xs font-semibold tracking-wide text-ok ring-1 ring-inset ring-ok/20">
-            <span className="size-1.5 rounded-full bg-ok" />
-            Free
-          </span>
+          {isCompleted ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold tracking-wide text-brand-700 ring-1 ring-inset ring-brand-200">
+              <span className="size-1.5 rounded-full bg-brand-600" />
+              Attempt Used {series.user_attempt?.percentage !== null ? `(${series.user_attempt?.percentage}%)` : ''}
+            </span>
+          ) : isInProgress ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold tracking-wide text-amber-700 ring-1 ring-inset ring-amber-200">
+              <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
+              In Progress
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-ok-50 px-2.5 py-0.5 text-xs font-semibold tracking-wide text-ok ring-1 ring-inset ring-ok/20">
+              <span className="size-1.5 rounded-full bg-ok" />
+              Free
+            </span>
+          )}
         </div>
 
         {/* Title + Description */}
@@ -200,7 +215,7 @@ export function FreeSeriesCard({ series }: { series: PublicTestSeries }) {
 
             {/* Clear Text CTA */}
             <span className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-brand-600 transition-all duration-200 group-hover:text-brand-700 group-hover:translate-x-0.5">
-              <span>Solve test</span>
+              <span>{isCompleted ? 'View results' : isInProgress ? 'Resume test' : 'Solve test'}</span>
               <ArrowIcon />
             </span>
           </div>
@@ -215,8 +230,14 @@ export function PaidSeriesCard({ series }: { series: PublicTestSeries }) {
   const isPurchased = series.access === 'PURCHASED';
   const isUnlocked = series.has_access;
   const isUpcoming = isPurchased && series.release_state === 'UPCOMING';
+  const isCompleted = series.user_attempt?.status === 'COMPLETED';
+  const isInProgress = series.user_attempt?.status === 'IN_PROGRESS';
   const subject = getSubjectIcon(series.title);
-  const targetUrl = isUnlocked ? `/tests/${series.id}` : `/test-series/${series.id}`;
+  const targetUrl = isCompleted
+    ? `/results/${series.user_attempt!.id}`
+    : isUnlocked
+    ? `/tests/${series.id}`
+    : `/test-series/${series.id}`;
 
   const releaseLabel =
     series.release_after_days === 0
@@ -262,7 +283,17 @@ export function PaidSeriesCard({ series }: { series: PublicTestSeries }) {
             </span>
           </div>
 
-          {isUnlocked ? (
+          {isCompleted ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold tracking-wide text-brand-700 ring-1 ring-inset ring-brand-200">
+              <span className="size-1.5 rounded-full bg-brand-600" />
+              Attempt Used {series.user_attempt?.percentage !== null ? `(${series.user_attempt?.percentage}%)` : ''}
+            </span>
+          ) : isInProgress ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold tracking-wide text-amber-700 ring-1 ring-inset ring-amber-200">
+              <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
+              In Progress
+            </span>
+          ) : isUnlocked ? (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-ok-50 px-2.5 py-0.5 text-xs font-semibold tracking-wide text-ok ring-1 ring-inset ring-ok/20">
               <span className="size-1.5 rounded-full bg-ok" />
               Unlocked
@@ -316,7 +347,17 @@ export function PaidSeriesCard({ series }: { series: PublicTestSeries }) {
             </div>
 
             {/* Clear Text CTA */}
-            {isUnlocked ? (
+            {isCompleted ? (
+              <span className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-brand-600 transition-all duration-200 group-hover:text-brand-700 group-hover:translate-x-0.5">
+                <span>View results</span>
+                <ArrowIcon />
+              </span>
+            ) : isInProgress ? (
+              <span className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-amber-700 transition-all duration-200 group-hover:text-amber-800 group-hover:translate-x-0.5">
+                <span>Resume test</span>
+                <ArrowIcon />
+              </span>
+            ) : isUnlocked ? (
               <span className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-ok transition-all duration-200 group-hover:text-ok group-hover:translate-x-0.5">
                 <span>Solve test</span>
                 <ArrowIcon />

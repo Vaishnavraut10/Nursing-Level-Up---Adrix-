@@ -1,7 +1,7 @@
 import 'server-only';
 import { query, queryOne, transaction } from '../db';
 import { ApiError, Errors } from '../../errors';
-import type { AnswerOption, Attempt, AttemptResult, Progress, ReviewItem, StudentQuestion, User } from '@/types';
+import type { AnswerOption, Attempt, AttemptResult, AttemptStatus, Progress, ReviewItem, StudentQuestion, User } from '@/types';
 import { hasPurchased } from './testSeriesService';
 import { listForAttempt, approvedIdsForSeries } from './questionService';
 import { scoreAttempt } from '../scoring';
@@ -52,6 +52,25 @@ export async function start(user: User, testSeriesId: string): Promise<StartedAt
     // Serialise concurrent "start" clicks for the same user+series.
     await db.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`${user.id}:${testSeriesId}`]);
 
+    // Enforce 1 attempt per student: check if already completed
+    const completed = await queryOne<AttemptRow>(
+      `SELECT ${ATTEMPT_COLUMNS}, a.question_ids
+         FROM attempts a
+        WHERE a.user_id = $1 AND a.test_series_id = $2 AND a.status = 'COMPLETED'
+        ORDER BY a.started_at DESC LIMIT 1`,
+      [user.id, testSeriesId],
+      db,
+    );
+
+    if (completed && user.role !== 'ADMIN') {
+      throw new ApiError(
+        403,
+        'ATTEMPT_ALREADY_USED',
+        'You have already completed this test series. Only one attempt is allowed per test.',
+        { attemptId: completed.id },
+      );
+    }
+
     const open = await queryOne<AttemptRow & { expired: boolean }>(
       `SELECT ${ATTEMPT_COLUMNS}, a.question_ids,
               now() > a.started_at + make_interval(mins => $3) AS expired
@@ -67,11 +86,26 @@ export async function start(user: User, testSeriesId: string): Promise<StartedAt
     if (open && !open.expired) {
       attempt = open;
       resumed = true;
-    } else {
-      if (open?.expired) {
-        // Time ran out without a submit (tab closed etc.): grade whatever was autosaved so the attempt isn't lost.
-        await finalize(db, open, new Map(), true);
+    } else if (open?.expired) {
+      // Time ran out without a submit (tab closed etc.): grade whatever was autosaved so the attempt isn't lost.
+      await finalize(db, open, new Map(), true);
+      if (user.role !== 'ADMIN') {
+        throw new ApiError(
+          403,
+          'ATTEMPT_ALREADY_USED',
+          'Your previous test session expired and was automatically submitted. Only one attempt is allowed per test.',
+          { attemptId: open.id },
+        );
       }
+      const questionIds = await approvedIdsForSeries(testSeriesId, db);
+      if (questionIds.length === 0) throw Errors.conflict('This test has no questions yet');
+      attempt = (await queryOne<AttemptRow>(
+        `INSERT INTO attempts AS a (user_id, test_series_id, total_questions, question_ids)
+         VALUES ($1,$2,$3,$4) RETURNING ${ATTEMPT_COLUMNS}, a.question_ids`,
+        [user.id, testSeriesId, questionIds.length, questionIds],
+        db,
+      ))!;
+    } else {
       const questionIds = await approvedIdsForSeries(testSeriesId, db);
       if (questionIds.length === 0) throw Errors.conflict('This test has no questions yet');
       attempt = (await queryOne<AttemptRow>(
@@ -288,4 +322,22 @@ export async function progressForUser(userId: string): Promise<Progress> {
     [userId],
   );
   return { ...stats!, trend };
+}
+
+export async function getAttemptForUserAndTest(userId: string, testSeriesId: string) {
+  return queryOne<{
+    id: string;
+    status: AttemptStatus;
+    score: number | null;
+    percentage: number | null;
+    started_at: string;
+    submitted_at: string | null;
+    total_questions: number;
+  }>(
+    `SELECT id, status, score, percentage, started_at, submitted_at, total_questions
+       FROM attempts
+      WHERE user_id = $1 AND test_series_id = $2
+      ORDER BY started_at DESC LIMIT 1`,
+    [userId, testSeriesId],
+  );
 }

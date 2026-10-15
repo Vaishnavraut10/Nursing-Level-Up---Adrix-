@@ -12,6 +12,7 @@ export type DocumentStatus =
   | 'GENERATING' | 'GENERATED' | 'GENERATE_FAILED' | 'APPROVED';
 export type AccessState = 'FREE' | 'LOGIN_REQUIRED' | 'PURCHASE_REQUIRED' | 'PURCHASED';
 export type SeriesReleaseState = 'AVAILABLE' | 'LOCKED' | 'UPCOMING';
+export type PromoDiscountType = 'PERCENTAGE' | 'FIXED';
 
 export interface User {
   id: string;
@@ -42,6 +43,7 @@ export interface Course {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  promo_codes?: PromoCode[];
 }
 
 export interface TestSeries {
@@ -203,6 +205,30 @@ export interface PublicTestSeries {
   release_state: SeriesReleaseState;
   /** Drip-release: when this series unlocks (null if already available or not purchased) */
   releases_at: string | null;
+  /** Current viewer's attempt on this test series, if any */
+  user_attempt?: {
+    id: string;
+    status: AttemptStatus;
+    score: number | null;
+    percentage: number | null;
+  } | null;
+}
+
+export interface PromoCode {
+  id: string;
+  course_id: string;
+  code: string;
+  discount_type: PromoDiscountType;
+  discount_value: number;
+  discount_price?: number | null;
+  max_uses: number | null;
+  per_user_limit: number;
+  expires_at: string | null;
+  is_active: boolean;
+  usage_count: number;
+  created_at: string;
+  updated_at: string;
+  course_title?: string;
 }
 
 export interface Question {

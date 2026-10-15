@@ -23,6 +23,11 @@ export default async function TestPage({ params }: { params: Promise<{ id: strin
     redirect('/course#course-payment');
   }
 
+  // If already completed by student, direct them straight to view their results
+  if (user.role !== 'ADMIN' && series.user_attempt?.status === 'COMPLETED') {
+    redirect(`/results/${series.user_attempt.id}`);
+  }
+
   return (
     <TestRunner
       testSeriesId={series.id}

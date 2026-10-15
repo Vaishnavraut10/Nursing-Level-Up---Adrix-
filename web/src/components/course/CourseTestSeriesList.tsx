@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import type { PublicTestSeries } from '@/types';
 import { ButtonLink } from '@/components/ui';
+export { ScrollToTestSeriesButton } from './ScrollToTestSeriesButton';
 
 interface CourseTestSeriesListProps {
   series: PublicTestSeries[];
@@ -177,7 +178,19 @@ export function CourseTestSeriesList({ series, hasCourseAccess }: CourseTestSeri
                       </span>
                     </div>
 
-                    {isUnlocked ? (
+                    {ts.user_attempt?.status === 'COMPLETED' ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700 ring-1 ring-inset ring-brand-200">
+                        <svg className="size-3 text-brand-600" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
+                        </svg>
+                        Attempt Used {ts.user_attempt.percentage !== null ? `(${ts.user_attempt.percentage}%)` : ''}
+                      </span>
+                    ) : ts.user_attempt?.status === 'IN_PROGRESS' ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
+                        <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        In Progress
+                      </span>
+                    ) : isUnlocked ? (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-ok-50 px-2.5 py-0.5 text-[11px] font-semibold text-ok ring-1 ring-inset ring-ok/25">
                         <span className="size-1.5 rounded-full bg-ok animate-pulse" />
                         Ready to Solve
@@ -209,8 +222,12 @@ export function CourseTestSeriesList({ series, hasCourseAccess }: CourseTestSeri
 
                   {/* Title & Description */}
                   <h3 className="mt-3 font-serif text-lg font-semibold leading-snug text-ink transition-colors group-hover:text-brand-700">
-                    {canSolve ? (
-                      <Link href={`/tests/${ts.id}`} title="Click to solve test">
+                    {ts.user_attempt?.status === 'COMPLETED' ? (
+                      <Link href={`/results/${ts.user_attempt.id}`} title="View your attempt result">
+                        {ts.title}
+                      </Link>
+                    ) : canSolve ? (
+                      <Link href={`/tests/${ts.id}`} title={ts.user_attempt?.status === 'IN_PROGRESS' ? 'Resume test' : 'Solve test'}>
                         {ts.title}
                       </Link>
                     ) : (
@@ -250,8 +267,25 @@ export function CourseTestSeriesList({ series, hasCourseAccess }: CourseTestSeri
                     </Link>
                   </div>
 
-                  {/* Direct Solve / Unlock Button */}
-                  {isUnlocked ? (
+                  {/* Action Button: View Results, Resume Test, Solve Test, or Unlock */}
+                  {ts.user_attempt?.status === 'COMPLETED' ? (
+                    <ButtonLink
+                      href={`/results/${ts.user_attempt.id}`}
+                      size="sm"
+                      variant="secondary"
+                      className="rounded-xl px-4 py-1.5 font-semibold text-xs shadow-xs text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200/80 inline-flex items-center gap-1.5"
+                    >
+                      View Results →
+                    </ButtonLink>
+                  ) : ts.user_attempt?.status === 'IN_PROGRESS' ? (
+                    <ButtonLink
+                      href={`/tests/${ts.id}`}
+                      size="sm"
+                      className="rounded-xl px-4 py-1.5 font-semibold text-xs shadow-xs bg-amber-600 hover:bg-amber-700 text-white inline-flex items-center gap-1.5"
+                    >
+                      Resume Test →
+                    </ButtonLink>
+                  ) : isUnlocked ? (
                     <ButtonLink
                       href={`/tests/${ts.id}`}
                       size="sm"
