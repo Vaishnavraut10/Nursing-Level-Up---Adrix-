@@ -7,7 +7,7 @@ import { Alert, Button, ButtonLink } from '@/components/ui';
 import { api, errorMessage } from '@/lib/api';
 
 interface CheckoutOrder {
-  purchase: { id: string };
+  purchase: { id: string; status?: string };
   razorpay: { keyId: string; orderId: string; amount: number; currency: string };
   prefill: { name: string; email: string; contact: string | null };
   course: { id: string; title: string };
@@ -134,6 +134,13 @@ export function Checkout({
       ]);
       setOrderId(order.razorpay.orderId);
 
+      // If zero-payable (e.g. 100% discount promo code), access is already verified and granted directly
+      if (order.razorpay.amount === 0 || order.purchase.status === 'SUCCESS') {
+        setPhase('success');
+        router.refresh();
+        return;
+      }
+
       const rzp = new window.Razorpay!({
         key: order.razorpay.keyId,
         order_id: order.razorpay.orderId,
@@ -165,10 +172,18 @@ export function Checkout({
         modal: {
           ondismiss: () => {
             setPhase((p) => (p === 'paying' ? 'idle' : p));
-            api('/api/payments/razorpay/cancel', {
+            // Check if user completed payment in an external UPI app (GPay / PhonePe / Paytm)
+            api('/api/payments/razorpay/sync', {
               method: 'POST',
-              json: { orderId: order.razorpay.orderId, reason: 'dismissed' },
-            }).catch(() => {});
+              json: { orderId: order.razorpay.orderId },
+            })
+              .then((res: any) => {
+                if (res?.status === 'SUCCESS') {
+                  setPhase('success');
+                  router.refresh();
+                }
+              })
+              .catch(() => {});
           },
         },
       });

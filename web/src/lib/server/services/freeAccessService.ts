@@ -12,6 +12,7 @@ export interface FreeAccessGrantRow {
   course_id: string;
   course_title: string;
   course_price: number;
+  price_snapshot: number | null;
   granted_by: string | null;
   admin_name: string | null;
   admin_email: string | null;
@@ -35,10 +36,13 @@ export async function ensureFreeAccessTableExists(db?: Queryable) {
       granted_by   UUID REFERENCES users(id) ON DELETE SET NULL,
       granted_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
       revoked_at   TIMESTAMPTZ,
+      price_snapshot NUMERIC(10,2),
       status       VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
       created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+
+    ALTER TABLE course_free_access ADD COLUMN IF NOT EXISTS price_snapshot NUMERIC(10,2);
 
     CREATE UNIQUE INDEX IF NOT EXISTS idx_course_free_access_unique_active
       ON course_free_access (user_id, course_id)
@@ -71,6 +75,7 @@ export async function getGrantById(grantId: string): Promise<FreeAccessGrantRow 
   return queryOne<FreeAccessGrantRow>(
     `SELECT cfa.id, cfa.user_id, u.name AS student_name, u.email AS student_email, u.phone AS student_phone,
             cfa.course_id, c.title AS course_title, c.price AS course_price,
+            cfa.price_snapshot,
             cfa.granted_by, a.name AS admin_name, a.email AS admin_email,
             cfa.granted_at, cfa.revoked_at, cfa.status, cfa.created_at, cfa.updated_at
        FROM course_free_access cfa
@@ -110,11 +115,19 @@ export async function grantFreeAccess(
     throw new Error(`Student ${student.name} already has active free access to ${course.title}.`);
   }
 
+  const existingPaid = await queryOne<{ id: string }>(
+    `SELECT id FROM purchases WHERE user_id = $1 AND course_id = $2 AND status = 'SUCCESS' LIMIT 1`,
+    [userId, courseId],
+  );
+  if (existingPaid) {
+    throw new Error(`Student ${student.name} already purchased course ${course.title}.`);
+  }
+
   const [created] = await query<FreeAccessGrantRow>(
-    `INSERT INTO course_free_access (user_id, course_id, granted_by, status, granted_at)
-     VALUES ($1, $2, $3, 'ACTIVE', now())
+    `INSERT INTO course_free_access (user_id, course_id, granted_by, price_snapshot, status, granted_at)
+     VALUES ($1, $2, $3, $4, 'ACTIVE', now())
      RETURNING id`,
-    [userId, courseId, adminId],
+    [userId, courseId, adminId, Number(course.price)],
   );
 
   await logAudit(
@@ -215,6 +228,7 @@ export async function listFreeAccessGrants(opts: {
   const items = await query<FreeAccessGrantRow>(
     `SELECT cfa.id, cfa.user_id, u.name AS student_name, u.email AS student_email, u.phone AS student_phone,
             cfa.course_id, c.title AS course_title, c.price AS course_price,
+            cfa.price_snapshot,
             cfa.granted_by, a.name AS admin_name, a.email AS admin_email,
             cfa.granted_at, cfa.revoked_at, cfa.status, cfa.created_at, cfa.updated_at
        FROM course_free_access cfa

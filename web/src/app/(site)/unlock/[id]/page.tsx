@@ -17,15 +17,15 @@ export default async function UnlockPage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   if (!uuidSchema.safeParse(id).success) notFound();
   const user = await requireStudentPage(`/unlock/${id}`);
-  const [series, course] = await Promise.all([
-    getPublished(id, user),
-    getPublishedCourse(),
-  ]);
-
-  if (!series || !course) notFound();
+  const series = await getPublished(id, user);
+  if (!series) notFound();
   if (series.has_access) redirect(`/tests/${id}`);
 
-  const userHasCourse = await hasCoursePurchase(user.id, course.id);
+  const targetCourseId = series.course_id || series.resolved_course_id;
+  const course = await getPublishedCourse(targetCourseId || undefined);
+  if (!course) notFound();
+
+  const userHasCourse = (series.access === 'PURCHASED') || (await hasCoursePurchase(user.id, course.id));
 
   // If user already purchased the course but this specific series is upcoming in the drip schedule:
   if (userHasCourse && series.release_state === 'UPCOMING') {

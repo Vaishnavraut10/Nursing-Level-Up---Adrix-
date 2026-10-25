@@ -254,15 +254,25 @@ export default async function DashboardPage() {
                   </div>
                   <div className="flex flex-1 flex-col p-5">
                     <div className="flex items-center gap-3 text-xs text-muted">
-                      <span className="rounded-full bg-ok-50 px-2.5 py-0.5 text-ok font-semibold">Active Access</span>
+                      <span className="rounded-full bg-ok-50 px-2.5 py-0.5 text-ok font-semibold">
+                        {p.provider === 'FREE' ? 'Admin Grant' : 'Active Access'}
+                      </span>
                       <span>Enrolled {formatDate(p.created_at)}</span>
                     </div>
                     <div className="mt-2 text-sm text-muted">
-                      {formatMoney(p.amount, p.currency)} · Daily 5 PM Releases
+                      {p.provider === 'FREE'
+                        ? 'Free Access Granted · Daily 5 PM Releases'
+                        : p.provider === 'PROMO' && Number(p.amount) === 0
+                        ? '100% Promo Discount · Daily 5 PM Releases'
+                        : `${formatMoney(p.amount, p.currency)} · Daily 5 PM Releases`}
                     </div>
                     <div className="mt-5 flex gap-2">
-                      <ButtonLink href="/test-series" size="sm" className="flex-1 justify-center rounded-lg">
-                        Go to Test Series
+                      <ButtonLink
+                        href={p.course_id ? `/course?id=${p.course_id}` : '/test-series'}
+                        size="sm"
+                        className="flex-1 justify-center rounded-lg"
+                      >
+                        Access Course Tests
                       </ButtonLink>
                     </div>
                   </div>

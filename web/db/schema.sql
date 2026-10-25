@@ -313,6 +313,7 @@ CREATE TABLE IF NOT EXISTS course_free_access (
   granted_by   UUID REFERENCES users(id) ON DELETE SET NULL,
   granted_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   revoked_at   TIMESTAMPTZ,
+  price_snapshot NUMERIC(10,2),
   status       VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()

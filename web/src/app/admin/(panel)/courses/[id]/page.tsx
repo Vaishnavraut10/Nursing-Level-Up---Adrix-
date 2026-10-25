@@ -98,15 +98,17 @@ export default async function AdminCourseDetailPage({
       />
 
       {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Stat label="Total Test Series" value={course.test_series_count} hint="Assigned to this course" />
-        <Stat label="Students Enrolled" value={course.purchase_count} />
-        <Stat label="Total Revenue" value={formatMoney(course.revenue, course.currency)} />
+        <Stat label="Total Access" value={course.total_access} hint={`${course.purchase_count} paid + ${course.free_access_count} free (deduplicated)`} />
+        <Stat label="Actual Revenue" value={formatMoney(course.revenue, course.currency)} hint="Successful payments only" />
+        <Stat label="Free Access Granted" value={course.free_access_count} hint={course.free_access_count > 0 ? `Imputed value: ${formatMoney(course.free_access_value, course.currency)}` : 'No free access grants'} />
         <Stat
           label="Course Type"
           value={course.is_free || Number(course.price) === 0 ? 'FREE' : 'PAID'}
           hint={course.is_free || Number(course.price) === 0 ? 'Instant student access' : (course.discount_price ? `₹${course.price} → ₹${course.discount_price}` : undefined)}
         />
+        <Stat label="Free Access Value" value={formatMoney(course.free_access_value, course.currency)} hint="Imputed regular price of free grants" />
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_360px]">
@@ -265,8 +267,16 @@ export default async function AdminCourseDetailPage({
                 <dd className="font-semibold text-ink">{course.test_series_count}</dd>
               </div>
               <div className="flex justify-between py-2.5">
-                <dt className="text-muted">Students Enrolled</dt>
+                <dt className="text-muted">Total Access</dt>
+                <dd className="font-semibold text-ink">{course.total_access}</dd>
+              </div>
+              <div className="flex justify-between py-2.5">
+                <dt className="text-muted">Paid Purchases</dt>
                 <dd className="font-semibold text-ink">{course.purchase_count}</dd>
+              </div>
+              <div className="flex justify-between py-2.5">
+                <dt className="text-muted">Free Access Grants</dt>
+                <dd className="font-semibold text-ink">{course.free_access_count}</dd>
               </div>
             </dl>
             <div className="pt-2">

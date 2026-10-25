@@ -81,3 +81,36 @@ export function verifyWebhookSignature(rawBody: string, signature: string) {
   const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
   return safeEqualHex(expected, signature);
 }
+
+export interface RazorpayPaymentItem {
+  id: string;
+  order_id: string;
+  status: 'captured' | 'failed' | 'authorized' | 'refunded';
+  amount: number;
+  currency: string;
+  email?: string;
+  contact?: string;
+  error_description?: string;
+}
+
+/** Fetches all payment attempts for a given Razorpay order directly from Razorpay API. */
+export async function fetchOrderPayments(orderId: string): Promise<RazorpayPaymentItem[]> {
+  if (!razorpayConfigured()) return [];
+  const { keyId, keySecret, base } = config();
+  try {
+    const res = await fetch(`${base}/orders/${orderId}/payments`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`,
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.items || []) as RazorpayPaymentItem[];
+  } catch (err) {
+    console.error('[razorpay] fetchOrderPayments error for', orderId, err);
+    return [];
+  }
+}
+

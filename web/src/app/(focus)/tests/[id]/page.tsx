@@ -14,8 +14,12 @@ export default async function TestPage({ params }: { params: Promise<{ id: strin
   const user = await requireStudentPage(`/tests/${id}`);
   const series = await getPublished(id, user);
   if (!series) notFound();
-  // Security redirect if not enrolled — send to course-payment section
+  // Security redirect: if enrolled but upcoming, show drip schedule notice.
+  // If not enrolled at all, send to course payment.
   if (!series.has_access) {
+    if (series.access === 'PURCHASED' && series.release_state === 'UPCOMING') {
+      redirect(`/unlock/${id}`);
+    }
     const courseId = series.course_id || series.resolved_course_id;
     if (courseId) {
       redirect(`/course?id=${courseId}#course-payment`);

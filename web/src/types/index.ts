@@ -267,7 +267,7 @@ export interface Purchase {
   course_id: string | null;
   amount: number;
   currency: string;
-  provider: 'RAZORPAY' | 'STRIPE';
+  provider: 'RAZORPAY' | 'STRIPE' | 'FREE' | 'PROMO';
   order_id: string;
   payment_id: string | null;
   promo_code_used: string | null;
@@ -278,6 +278,9 @@ export interface Purchase {
   course_title?: string;
   user_name?: string;
   user_email?: string;
+  original_price?: number | null;
+  discount_amount?: number | null;
+  has_active_access?: boolean;
 }
 
 export interface Attempt {

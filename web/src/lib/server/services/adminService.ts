@@ -6,26 +6,76 @@ import { logAudit } from './auditService';
 import { listForUser as attemptsForUser, progressForUser } from './attemptService';
 import { listForUser as purchasesForUser } from './purchaseService';
 
+import { ensureFreeAccessTableExists } from './freeAccessService';
+
 function paginate<T>(items: T[], total: number, page: number, pageSize: number): Paginated<T> {
   return { items, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
 }
 
 export async function dashboard() {
+  await ensureFreeAccessTableExists();
   const stats = await queryOne<Record<string, number>>(
-    `SELECT
-       (SELECT COUNT(*) FROM users WHERE role = 'STUDENT')::int AS total_students,
-       (SELECT COUNT(*) FROM users WHERE role = 'STUDENT' AND created_at > now() - interval '7 days')::int AS new_students_7d,
-       (SELECT COUNT(*) FROM test_series)::int AS total_test_series,
-       (SELECT COUNT(*) FROM test_series WHERE status = 'PUBLISHED')::int AS published_tests,
-       (SELECT COUNT(*) FROM test_series WHERE NOT is_free)::int AS paid_tests,
-       (SELECT COUNT(*) FROM purchases)::int AS total_purchases,
-       (SELECT COUNT(*) FROM purchases WHERE status = 'SUCCESS')::int AS successful_purchases,
-       -- Revenue = SUM(successful purchases) only; pending/failed/cancelled/refunded never count (PRD §6.2).
-       (SELECT COALESCE(SUM(amount), 0) FROM purchases WHERE status = 'SUCCESS')::float AS revenue,
-       (SELECT COUNT(*) FROM attempts)::int AS total_attempts,
-       (SELECT COUNT(*) FROM attempts WHERE status = 'COMPLETED')::int AS completed_attempts,
-       (SELECT ROUND(AVG(percentage), 2) FROM attempts WHERE status = 'COMPLETED')::float AS average_percentage,
-       (SELECT COUNT(*) FROM questions WHERE review_status = 'PENDING_REVIEW')::int AS pending_review`,
+    `WITH valid_free_grants AS (
+       SELECT DISTINCT ON (cfa.user_id, cfa.course_id)
+              cfa.id,
+              cfa.user_id,
+              cfa.course_id,
+              COALESCE(cfa.price_snapshot, c.price, 0)::float AS grant_value
+         FROM course_free_access cfa
+         JOIN courses c ON c.id = cfa.course_id
+         JOIN users u ON u.id = cfa.user_id
+        WHERE cfa.status = 'ACTIVE'
+          AND cfa.revoked_at IS NULL
+          AND u.email::text NOT LIKE 'deleted_%@deleted.local'
+          AND NOT EXISTS (
+            SELECT 1 FROM purchases p
+             WHERE p.user_id = cfa.user_id
+               AND p.course_id = cfa.course_id
+               AND p.status = 'SUCCESS'
+          )
+        ORDER BY cfa.user_id, cfa.course_id, cfa.created_at DESC
+     )
+     SELECT
+        (SELECT COUNT(*) FROM users WHERE role = 'STUDENT' AND email::text NOT LIKE 'deleted_%@deleted.local')::int AS total_students,
+        (SELECT COUNT(*) FROM users WHERE role = 'STUDENT' AND created_at > now() - interval '7 days' AND email::text NOT LIKE 'deleted_%@deleted.local')::int AS new_students_7d,
+        (SELECT COUNT(*) FROM test_series)::int AS total_test_series,
+        (SELECT COUNT(*) FROM test_series WHERE status = 'PUBLISHED')::int AS published_tests,
+        (SELECT COUNT(*) FROM test_series WHERE NOT is_free)::int AS paid_tests,
+        (SELECT COUNT(*) FROM purchases)::int AS total_purchases,
+        (SELECT COUNT(*) FROM purchases WHERE status = 'SUCCESS')::int AS successful_purchases,
+        -- Revenue = SUM(successful purchases) only; pending/failed/cancelled/refunded never count (PRD §6.2).
+        (SELECT COALESCE(SUM(amount), 0) FROM purchases WHERE status = 'SUCCESS')::float AS revenue,
+        (SELECT COUNT(*) FROM attempts)::int AS total_attempts,
+        (SELECT COUNT(*) FROM attempts WHERE status = 'COMPLETED')::int AS completed_attempts,
+        (SELECT ROUND(AVG(percentage), 2) FROM attempts WHERE status = 'COMPLETED')::float AS average_percentage,
+        (SELECT COUNT(*) FROM questions WHERE review_status = 'PENDING_REVIEW')::int AS pending_review,
+        -- Free access stats from valid_free_grants (deduped, unrevoked, excluding already-paid)
+        (SELECT COUNT(*) FROM valid_free_grants)::int AS free_access_granted,
+        (SELECT COALESCE(SUM(grant_value), 0) FROM valid_free_grants)::float AS free_access_value,
+        -- Total Business Value = Actual Revenue (cash) + Free Access Value (imputed)
+        ((SELECT COALESCE(SUM(amount), 0) FROM purchases WHERE status = 'SUCCESS') +
+         (SELECT COALESCE(SUM(grant_value), 0) FROM valid_free_grants))::float AS total_business_value,
+        -- Total course access = distinct (user, course) with paid purchase OR active free access, no duplicates
+        (SELECT COUNT(*) FROM (
+          SELECT user_id, course_id FROM purchases WHERE status = 'SUCCESS' AND course_id IS NOT NULL
+          UNION
+          SELECT user_id, course_id FROM valid_free_grants
+        ) AS all_access)::int AS total_course_access,
+        -- Distinct successful paid transactions
+        (SELECT COUNT(DISTINCT order_id) FROM purchases WHERE status = 'SUCCESS')::int AS paid_transactions,
+        -- Paid course purchases count
+        (SELECT COUNT(*) FROM purchases WHERE status = 'SUCCESS' AND course_id IS NOT NULL)::int AS paid_course_purchases,
+        -- Promo code purchases
+        (SELECT COUNT(*) FROM purchases WHERE status = 'SUCCESS' AND promo_code_used IS NOT NULL)::int AS promo_purchases,
+        -- Total discounts given on successful purchases
+        (SELECT COALESCE(SUM(GREATEST(0, COALESCE(c.price, 0) - p.amount)), 0)
+           FROM purchases p
+           JOIN courses c ON c.id = p.course_id
+          WHERE p.status = 'SUCCESS' AND p.promo_code_used IS NOT NULL)::float AS discounts_given,
+        -- Failed payments
+        (SELECT COUNT(*) FROM purchases WHERE status = 'FAILED')::int AS failed_purchases,
+        -- Pending/Cancelled payments
+        (SELECT COUNT(*) FROM purchases WHERE status IN ('PENDING', 'CANCELLED'))::int AS pending_purchases`,
   );
   const [recentUsers, recentPurchases, recentAttempts] = await Promise.all([
     query<Pick<User, 'id' | 'name' | 'email' | 'created_at'>>(
@@ -215,7 +265,15 @@ export async function listPurchases(opts: {
     `SELECT p.id, p.user_id, p.test_series_id, p.course_id, p.amount, p.currency, p.provider, p.order_id, p.payment_id,
             p.promo_code_used, p.status, p.created_at, p.updated_at,
             u.name AS user_name, u.email AS user_email,
-            COALESCE(c.title, ts.title) AS test_title, c.title AS course_title
+            COALESCE(c.title, ts.title) AS test_title, c.title AS course_title,
+            c.price AS original_price,
+            CASE WHEN p.promo_code_used IS NOT NULL AND c.price IS NOT NULL
+                 THEN GREATEST(0, c.price - p.amount)
+                 ELSE 0 END AS discount_amount,
+            ((p.status = 'SUCCESS') OR EXISTS (
+              SELECT 1 FROM course_free_access cfa
+               WHERE cfa.user_id = p.user_id AND cfa.course_id = p.course_id AND cfa.status = 'ACTIVE' AND cfa.revoked_at IS NULL
+            )) AS has_active_access
        ${from}
       ORDER BY p.created_at DESC
       LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -230,7 +288,15 @@ export async function listPurchases(opts: {
 export async function purchaseDetail(id: string) {
   const purchase = await queryOne<Purchase & { failure_reason: string | null; user_phone: string | null }>(
     `SELECT p.*, u.name AS user_name, u.email AS user_email, u.phone AS user_phone,
-            COALESCE(c.title, ts.title) AS test_title, c.title AS course_title
+            COALESCE(c.title, ts.title) AS test_title, c.title AS course_title,
+            c.price AS original_price,
+            CASE WHEN p.promo_code_used IS NOT NULL AND c.price IS NOT NULL
+                 THEN GREATEST(0, c.price - p.amount)
+                 ELSE 0 END AS discount_amount,
+            ((p.status = 'SUCCESS') OR EXISTS (
+              SELECT 1 FROM course_free_access cfa
+               WHERE cfa.user_id = p.user_id AND cfa.course_id = p.course_id AND cfa.status = 'ACTIVE' AND cfa.revoked_at IS NULL
+            )) AS has_active_access
        FROM purchases p
        JOIN users u ON u.id = p.user_id
        LEFT JOIN test_series ts ON ts.id = p.test_series_id
@@ -244,6 +310,123 @@ export async function purchaseDetail(id: string) {
     [purchase.order_id],
   );
   return { purchase, events };
+}
+
+export interface ReconcileResult {
+  dryRun: boolean;
+  totalChecked: number;
+  repairedCount: number;
+  candidates: {
+    purchaseId: string;
+    userId: string;
+    userEmail: string;
+    orderId: string;
+    paymentId: string | null;
+    currentStatus: string;
+    verifiedEventType?: string;
+    issue: string;
+    action: string;
+  }[];
+  unassignedTests: { id: string; title: string }[];
+}
+
+import { fetchOrderPayments } from '../razorpay';
+import { markSuccess } from './purchaseService';
+
+/**
+ * Reconciles transactions safely against verified stored payment events and live Razorpay gateway verification.
+ * Only upgrades to SUCCESS if Razorpay confirmed capture/payment and the captured amount matches.
+ * Never grants access for failed, unverified, or cancelled payments without captured funds.
+ */
+export async function reconcilePurchases(adminId: string, dryRun: boolean = true): Promise<ReconcileResult> {
+  const allPurchases = await query<Purchase & { user_email: string; failure_reason: string | null }>(
+    `SELECT p.*, u.email AS user_email
+       FROM purchases p
+       JOIN users u ON u.id = p.user_id
+      ORDER BY p.created_at DESC`,
+  );
+
+  const candidates: ReconcileResult['candidates'] = [];
+  let repairedCount = 0;
+
+  for (const p of allPurchases) {
+    if (p.status !== 'SUCCESS') {
+      // 1. Check if there is a verified captured webhook event for this order
+      const capturedEvent = await queryOne<{ event_type: string; payment_id: string }>(
+        `SELECT event_type, payment_id FROM payment_events
+          WHERE order_id = $1 AND event_type IN ('payment.captured', 'order.paid')
+          ORDER BY created_at DESC LIMIT 1`,
+        [p.order_id],
+      );
+
+      let verifiedPaymentId: string | null = null;
+      let verificationSource = '';
+
+      if (capturedEvent) {
+        verifiedPaymentId = capturedEvent.payment_id || p.payment_id || `pay_${p.order_id.replace(/^order_/, '')}`;
+        verificationSource = `webhook ${capturedEvent.event_type}`;
+      } else if (p.order_id && p.order_id.startsWith('order_')) {
+        // 2. Query Razorpay API directly for missed webhooks
+        try {
+          const payments = await fetchOrderPayments(p.order_id);
+          const captured = payments.find((x) => x.status === 'captured');
+          if (captured) {
+            const expectedPaise = Math.round(Number(p.amount) * 100);
+            if (captured.amount === expectedPaise) {
+              verifiedPaymentId = captured.id;
+              verificationSource = `Razorpay API captured (${captured.id})`;
+            }
+          }
+        } catch (err) {
+          console.error('[reconcile] error querying razorpay for order', p.order_id, err);
+        }
+      }
+
+      if (verifiedPaymentId) {
+        candidates.push({
+          purchaseId: p.id,
+          userId: p.user_id,
+          userEmail: p.user_email,
+          orderId: p.order_id,
+          paymentId: verifiedPaymentId,
+          currentStatus: p.status,
+          verifiedEventType: verificationSource,
+          issue: `Payment verified by ${verificationSource} but purchase status in DB is ${p.status}`,
+          action: dryRun ? 'Would upgrade to SUCCESS and grant course enrollment' : 'Upgraded to SUCCESS and enrolled in course',
+        });
+
+        if (!dryRun) {
+          await markSuccess(p.order_id, verifiedPaymentId);
+          await query(
+            `INSERT INTO payment_events (provider, event_id, event_type, order_id, payment_id, payload)
+             VALUES ('RAZORPAY', $1, 'reconcile.payment_captured', $2, $3, $4)
+             ON CONFLICT (event_id) DO NOTHING`,
+            [`reconcile_${verifiedPaymentId}`, p.order_id, verifiedPaymentId, { reconciled_by: adminId, source: verificationSource }],
+          );
+          await logAudit(adminId, 'RECONCILE_PAYMENT' as any, 'purchase', p.id, {
+            order_id: p.order_id,
+            payment_id: verifiedPaymentId,
+            previous_status: p.status,
+            reason: `Reconciled from ${verificationSource}`,
+          });
+          repairedCount++;
+        }
+      }
+    }
+  }
+
+  // Also audit any unassigned test series
+  const unassigned = await query<{ id: string; title: string }>(
+    `SELECT id, title FROM test_series WHERE course_id IS NULL AND status = 'PUBLISHED'`,
+  );
+
+  return {
+    dryRun,
+    totalChecked: allPurchases.length,
+    repairedCount,
+    candidates,
+    unassignedTests: unassigned,
+  };
 }
 
 export async function listAttempts(opts: {

@@ -59,12 +59,31 @@ export async function createCourseCheckout(user: User, courseId: string, promoCo
     course: { id: course.id, title: course.title },
   };
 
+  // Zero-payable / 100% discount promo code: grant verified entitlement directly without Razorpay
+  if (finalPrice <= 0) {
+    const orderId = `promo_${Date.now().toString(36)}_${user.id.slice(0, 8)}`;
+    const purchase = await queryOne<Purchase>(
+      `INSERT INTO purchases AS p (user_id, course_id, amount, currency, provider, order_id, payment_id, promo_code_used, status)
+       VALUES ($1, $2, 0, $3, 'PROMO', $4, $4, $5, 'SUCCESS')
+       RETURNING ${PURCHASE_COLUMNS}`,
+      [user.id, course.id, course.currency, orderId, usedPromo],
+    );
+    if (usedPromo) {
+      await recordPromoCodeUsage(course.id, usedPromo);
+    }
+    return {
+      ...base,
+      purchase: purchase!,
+      razorpay: { keyId: '', orderId, amount: 0, currency: course.currency },
+    };
+  }
+
   // Reuse a recent pending order at the same price instead of creating a new one on every click.
   const reusable = existing.find(
-    (p) => p.status === 'PENDING' && p.amount === finalPrice && Date.now() - new Date(p.created_at).getTime() < 12 * 3600_000,
+    (p) => p.status === 'PENDING' && Number(p.amount) === Number(finalPrice) && Date.now() - new Date(p.created_at).getTime() < 12 * 3600_000,
   );
   if (reusable) {
-    return { ...base, purchase: reusable, razorpay: { keyId, orderId: reusable.order_id, amount: Math.round(reusable.amount * 100), currency: reusable.currency } };
+    return { ...base, purchase: reusable, razorpay: { keyId, orderId: reusable.order_id, amount: Math.round(Number(reusable.amount) * 100), currency: reusable.currency } };
   }
 
   const amountPaise = Math.round(finalPrice * 100);
@@ -86,21 +105,65 @@ export async function createCourseCheckout(user: User, courseId: string, promoCo
 }
 
 /**
- * Marks a purchase SUCCESS. Called only after a verified signature (checkout verify or webhook).
- * Idempotent: repeated calls for an already-successful order are no-ops.
+ * Marks a purchase SUCCESS. Called only after a verified signature (checkout verify, webhook, or gateway sync).
+ * Idempotent: repeated calls for an already-successful order return the active record.
  */
 export async function markSuccess(orderId: string, paymentId: string, db?: Queryable) {
-  const row = await queryOne<Purchase>(
-    `UPDATE purchases AS p SET status = 'SUCCESS', payment_id = $2, failure_reason = NULL
+  let row = await queryOne<Purchase>(
+    `UPDATE purchases AS p
+        SET status = 'SUCCESS', payment_id = $2, failure_reason = NULL, updated_at = now()
       WHERE p.order_id = $1 AND p.status IN ('PENDING', 'FAILED', 'CANCELLED')
       RETURNING ${PURCHASE_COLUMNS}`,
     [orderId, paymentId],
     db,
   );
-  if (row && row.promo_code_used && row.course_id) {
-    await recordPromoCodeUsage(row.course_id, row.promo_code_used, db);
+  if (row) {
+    if (row.promo_code_used && row.course_id) {
+      await recordPromoCodeUsage(row.course_id, row.promo_code_used, db);
+    }
+    return row;
   }
-  return row;
+  return queryOne<Purchase>(
+    `SELECT ${PURCHASE_COLUMNS} FROM purchases WHERE order_id = $1 AND status = 'SUCCESS'`,
+    [orderId],
+    db,
+  );
+}
+
+/**
+ * Synchronizes an order directly with Razorpay API.
+ * Confirms payment capture and matching amount against trusted gateway records.
+ * Idempotent, safe, and logs verified audit events.
+ */
+export async function syncOrderWithGateway(orderId: string, userId?: string, db?: Queryable): Promise<Purchase | null> {
+  const purchase = await queryOne<Purchase>(
+    `SELECT ${PURCHASE_COLUMNS} FROM purchases WHERE order_id = $1`,
+    [orderId],
+    db,
+  );
+  if (!purchase) return null;
+  if (userId && purchase.user_id !== userId) return null;
+  if (purchase.status === 'SUCCESS') return purchase;
+
+  const payments = await razorpay.fetchOrderPayments(orderId);
+  const captured = payments.find((p) => p.status === 'captured');
+  if (captured) {
+    const expectedPaise = Math.round(Number(purchase.amount) * 100);
+    if (captured.amount === expectedPaise) {
+      const updated = await markSuccess(orderId, captured.id, db);
+      await query(
+        `INSERT INTO payment_events (provider, event_id, event_type, order_id, payment_id, payload)
+         VALUES ('RAZORPAY', $1, 'sync.payment_captured', $2, $3, $4)
+         ON CONFLICT (event_id) DO NOTHING`,
+        [`sync_${captured.id}`, orderId, captured.id, { captured, synced_at: new Date().toISOString() }],
+        db,
+      );
+      return updated;
+    } else {
+      console.error('[razorpay] sync amount mismatch', { orderId, expected: expectedPaise, got: captured.amount });
+    }
+  }
+  return purchase;
 }
 
 /** POST /api/payments/razorpay/verify: HMAC-verified Checkout response → SUCCESS. */
@@ -121,21 +184,31 @@ export async function verifyCheckout(
 }
 
 /**
- * Client-reported dismissal/failure. Can only move PENDING → CANCELLED/FAILED for the owner's own order,
- * so it can never grant access; a later verified webhook still upgrades it to SUCCESS if money was taken.
+ * Client-reported dismissal/failure.
+ * Safety check: If payment was actually captured on Razorpay, never cancel — mark SUCCESS instead!
  */
 export async function markAbandoned(user: User, orderId: string, status: 'CANCELLED' | 'FAILED', reason?: string) {
+  const purchase = await queryOne<Purchase>(
+    `SELECT ${PURCHASE_COLUMNS} FROM purchases WHERE order_id = $1 AND user_id = $2`,
+    [orderId, user.id],
+  );
+  if (!purchase) throw Errors.notFound('Order');
+  if (purchase.status === 'SUCCESS') return purchase;
+
+  // Check if Razorpay already captured this payment before marking abandoned
+  const payments = await razorpay.fetchOrderPayments(orderId);
+  const captured = payments.find((p) => p.status === 'captured');
+  if (captured && captured.amount === Math.round(Number(purchase.amount) * 100)) {
+    return (await markSuccess(orderId, captured.id)) ?? purchase;
+  }
+
   const row = await queryOne<Purchase>(
-    `UPDATE purchases AS p SET status = $3, failure_reason = $4
+    `UPDATE purchases AS p SET status = $3, failure_reason = $4, updated_at = now()
       WHERE p.order_id = $1 AND p.user_id = $2 AND p.status = 'PENDING'
       RETURNING ${PURCHASE_COLUMNS}`,
     [orderId, user.id, status, reason?.slice(0, 500) ?? null],
   );
-  if (!row) {
-    const exists = await queryOne(`SELECT 1 FROM purchases WHERE order_id = $1 AND user_id = $2`, [orderId, user.id]);
-    if (!exists) throw Errors.notFound('Order');
-  }
-  return row;
+  return row ?? purchase;
 }
 
 interface WebhookPayload {
@@ -162,14 +235,18 @@ export async function handleWebhook(eventId: string, body: WebhookPayload) {
     );
     if (!inserted) return { duplicate: true, handled: false };
 
-    if ((body.event === 'payment.captured' || body.event === 'order.paid') && payment && orderId) {
+    if ((body.event === 'payment.captured' || body.event === 'order.paid') && orderId) {
       const purchase = await queryOne<Purchase>(`SELECT ${PURCHASE_COLUMNS} FROM purchases p WHERE p.order_id = $1 FOR UPDATE`, [orderId], db);
       if (!purchase) return { duplicate: false, handled: false };
-      if (payment.amount !== Math.round(purchase.amount * 100)) {
-        console.error('[razorpay] webhook amount mismatch', { orderId, expected: purchase.amount, got: payment.amount });
+
+      const paymentAmount = payment?.amount ?? body.payload?.order?.entity?.amount_paid;
+      const expectedPaise = Math.round(Number(purchase.amount) * 100);
+      if (paymentAmount !== undefined && paymentAmount !== null && paymentAmount !== expectedPaise) {
+        console.error('[razorpay] webhook amount mismatch', { orderId, expected: expectedPaise, got: paymentAmount });
         return { duplicate: false, handled: false };
       }
-      await markSuccess(orderId, payment.id, db);
+      const paymentId = payment?.id ?? purchase.payment_id ?? `pay_${orderId.replace(/^order_/, '')}`;
+      await markSuccess(orderId, paymentId, db);
       return { duplicate: false, handled: true };
     }
     if (body.event === 'payment.failed' && orderId) {
@@ -203,9 +280,25 @@ export async function getForUser(user: User, purchaseId: string) {
 
 export async function listForUser(userId: string) {
   return query<Purchase>(
-    `SELECT ${PURCHASE_COLUMNS}, c.title AS course_title FROM purchases p
-      LEFT JOIN courses c ON c.id = p.course_id
-      WHERE p.user_id = $1 ORDER BY p.created_at DESC`,
+    `SELECT p.id, p.user_id, p.test_series_id, p.course_id, p.amount, p.currency, p.provider, p.order_id,
+            p.payment_id, p.promo_code_used, p.status, p.created_at, p.updated_at, c.title AS course_title
+       FROM purchases p
+       LEFT JOIN courses c ON c.id = p.course_id
+      WHERE p.user_id = $1
+      UNION ALL
+     SELECT cfa.id, cfa.user_id, NULL::uuid AS test_series_id, cfa.course_id, 0::numeric AS amount,
+            c.currency, 'FREE'::payment_provider AS provider, ('grant_' || replace(cfa.id::text, '-', '')) AS order_id,
+            ('grant_' || replace(cfa.id::text, '-', '')) AS payment_id, NULL AS promo_code_used,
+            'SUCCESS'::purchase_status AS status, cfa.granted_at AS created_at, cfa.updated_at,
+            c.title AS course_title
+       FROM course_free_access cfa
+       JOIN courses c ON c.id = cfa.course_id
+      WHERE cfa.user_id = $1 AND cfa.status = 'ACTIVE' AND cfa.revoked_at IS NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM purchases p2
+           WHERE p2.user_id = cfa.user_id AND p2.course_id = cfa.course_id AND p2.status = 'SUCCESS'
+        )
+      ORDER BY created_at DESC`,
     [userId],
   );
 }

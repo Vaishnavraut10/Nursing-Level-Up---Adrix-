@@ -68,7 +68,26 @@ export async function hasCoursePurchase(userId: string, courseId: string): Promi
   );
   if (row !== null) return true;
 
-  return hasActiveFreeAccess(userId, courseId);
+  if (await hasActiveFreeAccess(userId, courseId)) return true;
+
+  // Self-healing check: If student has a recent order that was captured on Razorpay, sync and verify it
+  const unverified = await queryOne<{ order_id: string }>(
+    `SELECT order_id FROM purchases
+      WHERE user_id = $1 AND course_id = $2 AND status IN ('PENDING', 'CANCELLED')
+      ORDER BY created_at DESC LIMIT 1`,
+    [userId, courseId],
+  );
+  if (unverified?.order_id && unverified.order_id.startsWith('order_')) {
+    try {
+      const { syncOrderWithGateway } = await import('./purchaseService');
+      const synced = await syncOrderWithGateway(unverified.order_id, userId);
+      if (synced?.status === 'SUCCESS') return true;
+    } catch (err) {
+      console.error('[hasCoursePurchase] gateway sync fallback error', err);
+    }
+  }
+
+  return false;
 }
 
 /** Returns the earliest successful course purchase date or free access grant date (access_started_at for drip schedule). */
@@ -113,7 +132,7 @@ export async function adminList(opts: {
   pageSize: number;
   q?: string;
   status?: CourseStatus;
-}): Promise<Paginated<Course & { test_series_count: number; purchase_count: number; revenue: number }>> {
+}): Promise<Paginated<Course & { test_series_count: number; purchase_count: number; revenue: number; free_access_count: number; free_access_value: number; total_access: number }>> {
   const where: string[] = [];
   const params: unknown[] = [];
   if (opts.q) {
@@ -129,11 +148,18 @@ export async function adminList(opts: {
     `SELECT COUNT(*)::int AS total FROM courses c ${whereSql}`, params,
   );
   params.push(opts.pageSize, (opts.page - 1) * opts.pageSize);
-  const rows = await query<Course & { test_series_count: number; purchase_count: number; revenue: number }>(
+  const rows = await query<Course & { test_series_count: number; purchase_count: number; revenue: number; free_access_count: number; free_access_value: number; total_access: number }>(
     `SELECT ${COURSE_COLUMNS},
             (SELECT COUNT(*) FROM test_series ts WHERE ts.course_id = c.id)::int AS test_series_count,
             (SELECT COUNT(*) FROM purchases p WHERE p.course_id = c.id AND p.status = 'SUCCESS')::int AS purchase_count,
-            (SELECT COALESCE(SUM(p.amount), 0) FROM purchases p WHERE p.course_id = c.id AND p.status = 'SUCCESS') AS revenue
+            (SELECT COALESCE(SUM(p.amount), 0) FROM purchases p WHERE p.course_id = c.id AND p.status = 'SUCCESS') AS revenue,
+            (SELECT COUNT(*) FROM course_free_access cfa WHERE cfa.course_id = c.id AND cfa.status = 'ACTIVE' AND cfa.revoked_at IS NULL AND NOT EXISTS (SELECT 1 FROM purchases p WHERE p.user_id = cfa.user_id AND p.course_id = c.id AND p.status = 'SUCCESS'))::int AS free_access_count,
+            (SELECT COALESCE(SUM(COALESCE(cfa.price_snapshot, c.price)), 0) FROM course_free_access cfa WHERE cfa.course_id = c.id AND cfa.status = 'ACTIVE' AND cfa.revoked_at IS NULL AND NOT EXISTS (SELECT 1 FROM purchases p WHERE p.user_id = cfa.user_id AND p.course_id = c.id AND p.status = 'SUCCESS'))::float AS free_access_value,
+            (SELECT COUNT(*) FROM (
+              SELECT user_id FROM purchases p2 WHERE p2.course_id = c.id AND p2.status = 'SUCCESS'
+              UNION
+              SELECT user_id FROM course_free_access cfa2 WHERE cfa2.course_id = c.id AND cfa2.status = 'ACTIVE' AND cfa2.revoked_at IS NULL
+            ) AS acc)::int AS total_access
        FROM courses c ${whereSql}
       ORDER BY c.created_at DESC
       LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -144,11 +170,18 @@ export async function adminList(opts: {
 }
 
 export async function adminGet(id: string) {
-  const row = await queryOne<Course & { test_series_count: number; purchase_count: number; revenue: number }>(
+  const row = await queryOne<Course & { test_series_count: number; purchase_count: number; revenue: number; free_access_count: number; free_access_value: number; total_access: number }>(
     `SELECT ${COURSE_COLUMNS},
             (SELECT COUNT(*) FROM test_series ts WHERE ts.course_id = c.id)::int AS test_series_count,
             (SELECT COUNT(*) FROM purchases p WHERE p.course_id = c.id AND p.status = 'SUCCESS')::int AS purchase_count,
-            (SELECT COALESCE(SUM(p.amount), 0) FROM purchases p WHERE p.course_id = c.id AND p.status = 'SUCCESS') AS revenue
+            (SELECT COALESCE(SUM(p.amount), 0) FROM purchases p WHERE p.course_id = c.id AND p.status = 'SUCCESS') AS revenue,
+            (SELECT COUNT(*) FROM course_free_access cfa WHERE cfa.course_id = c.id AND cfa.status = 'ACTIVE' AND cfa.revoked_at IS NULL AND NOT EXISTS (SELECT 1 FROM purchases p WHERE p.user_id = cfa.user_id AND p.course_id = c.id AND p.status = 'SUCCESS'))::int AS free_access_count,
+            (SELECT COALESCE(SUM(COALESCE(cfa.price_snapshot, c.price)), 0) FROM course_free_access cfa WHERE cfa.course_id = c.id AND cfa.status = 'ACTIVE' AND cfa.revoked_at IS NULL AND NOT EXISTS (SELECT 1 FROM purchases p WHERE p.user_id = cfa.user_id AND p.course_id = c.id AND p.status = 'SUCCESS'))::float AS free_access_value,
+            (SELECT COUNT(*) FROM (
+              SELECT user_id FROM purchases p2 WHERE p2.course_id = c.id AND p2.status = 'SUCCESS'
+              UNION
+              SELECT user_id FROM course_free_access cfa2 WHERE cfa2.course_id = c.id AND cfa2.status = 'ACTIVE' AND cfa2.revoked_at IS NULL
+            ) AS acc)::int AS total_access
        FROM courses c WHERE c.id = $1`,
     [id],
   );

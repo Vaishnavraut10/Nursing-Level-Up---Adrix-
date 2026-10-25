@@ -250,11 +250,21 @@ export async function getPublished(id: string, viewer: User | null): Promise<Pub
 
   let hasCourseAccess = false;
   let accessStartedAt: Date | null = null;
-
-  if (row.course_id && viewer) {
-    hasCourseAccess = await courseService.hasCoursePurchase(viewer.id, row.course_id);
+  const targetCourseId = row.course_id || row.resolved_course_id;
+  if (targetCourseId && viewer) {
+    hasCourseAccess = await courseService.hasCoursePurchase(viewer.id, targetCourseId);
     if (hasCourseAccess) {
-      accessStartedAt = await courseService.getAccessStartedAt(viewer.id, row.course_id);
+      accessStartedAt = await courseService.getAccessStartedAt(viewer.id, targetCourseId);
+    }
+  }
+  if (!hasCourseAccess && viewer) {
+    const direct = await queryOne(
+      `SELECT 1 FROM purchases WHERE user_id = $1 AND test_series_id = $2 AND status = 'SUCCESS' LIMIT 1`,
+      [viewer.id, id],
+    );
+    if (direct) {
+      hasCourseAccess = true;
+      accessStartedAt = new Date(0);
     }
   }
 
@@ -294,14 +304,23 @@ export async function hasAccess(userId: string, testSeriesId: string, userRole?:
 
   const isFree = series.course_id ? Boolean(series.course_is_free || Number(series.course_price) === 0) : series.is_free;
   if (isFree) return true;
-  if (!series.course_id) return false;
 
-  const hasPurchase = await courseService.hasCoursePurchase(userId, series.course_id);
+  // Check direct test purchase (legacy support)
+  const direct = await queryOne(
+    `SELECT 1 FROM purchases WHERE user_id = $1 AND test_series_id = $2 AND status = 'SUCCESS' LIMIT 1`,
+    [userId, testSeriesId],
+  );
+  if (direct) return true;
+
+  const courseId = series.course_id || (await courseService.getPublishedCourse())?.id;
+  if (!courseId) return false;
+
+  const hasPurchase = await courseService.hasCoursePurchase(userId, courseId);
   if (!hasPurchase) return false;
 
   // Check drip schedule
   if (series.release_after_days === 0) return true;
-  const accessStartedAt = await courseService.getAccessStartedAt(userId, series.course_id);
+  const accessStartedAt = await courseService.getAccessStartedAt(userId, courseId);
   if (!accessStartedAt) return false;
   const releaseDate = computeReleaseDate(accessStartedAt, series.release_after_days);
   return new Date() >= releaseDate;

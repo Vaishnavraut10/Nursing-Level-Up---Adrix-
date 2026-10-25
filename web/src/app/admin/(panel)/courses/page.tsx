@@ -54,10 +54,11 @@ export default async function AdminCoursesPage({
           <tr>
             <Th>Course Title</Th>
             <Th>Base Price</Th>
-            <Th>Promo Code & Discount</Th>
+            <Th>Promo Code &amp; Discount</Th>
             <Th className="text-right">Test Series</Th>
-            <Th className="text-right">Students Enrolled</Th>
-            <Th className="text-right">Revenue</Th>
+            <Th className="text-right">Total Access</Th>
+            <Th className="text-right">Free Access</Th>
+            <Th className="text-right">Actual Revenue</Th>
             <Th>Status</Th>
             <Th className="text-right">Actions</Th>
           </tr>
@@ -115,7 +116,14 @@ export default async function AdminCoursesPage({
                 {c.test_series_count} series
               </Td>
               <Td className="text-right tabular-nums">
-                {c.purchase_count} students
+                <div>{c.total_access} students</div>
+                <div className="text-xs text-muted">{c.purchase_count} paid · {c.free_access_count} free</div>
+              </Td>
+              <Td className="text-right tabular-nums">
+                <div>{c.free_access_count} grants</div>
+                {c.free_access_count > 0 && (
+                  <div className="text-xs text-muted">Value: {formatMoney(c.free_access_value, c.currency)}</div>
+                )}
               </Td>
               <Td className="text-right tabular-nums font-semibold text-ink">
                 {formatMoney(c.revenue, c.currency)}
@@ -145,7 +153,7 @@ export default async function AdminCoursesPage({
           ))}
           {data.items.length === 0 && (
             <tr>
-              <Td colSpan={8} className="py-10 text-center text-muted">
+              <Td colSpan={9} className="py-10 text-center text-muted">
                 No courses found.
               </Td>
             </tr>
