@@ -5,10 +5,22 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const serif = Source_Serif_4({ subsets: ['latin'], variable: '--font-source-serif', display: 'swap', weight: ['400', '500', '600', '700'] });
 
+function getMetadataBase(): URL {
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (envUrl) {
+    try {
+      return new URL(envUrl.startsWith('http') ? envUrl : `https://${envUrl}`);
+    } catch {
+      // ignore invalid URL
+    }
+  }
+  return new URL('http://localhost:3000');
+}
+
 export const metadata: Metadata = {
   title: { default: 'Nursing Level Up — Nursing MCQ Test Series', template: '%s · Nursing Level Up' },
   description: 'Exam-level nursing MCQ test series with instant, explained results. Practice smarter, prepare better.',
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
+  metadataBase: getMetadataBase(),
 };
 
 export const viewport: Viewport = { themeColor: '#11504b', width: 'device-width', initialScale: 1 };

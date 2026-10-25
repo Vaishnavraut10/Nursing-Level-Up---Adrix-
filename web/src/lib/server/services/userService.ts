@@ -3,9 +3,12 @@ import { query, queryOne } from '../db';
 import type { User } from '@/types';
 import bcrypt from 'bcryptjs';
 
+import { uuidSchema } from '../../validation';
+
 const USER_COLUMNS = 'id, google_id, password_hash, name, email, phone, role, status, created_at, updated_at, last_login_at';
 
 export async function findById(id: string) {
+  if (!uuidSchema.safeParse(id).success) return null;
   return queryOne<User>(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [id]);
 }
 

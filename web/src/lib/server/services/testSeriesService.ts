@@ -3,6 +3,7 @@ import { query, queryOne, transaction } from '../db';
 import { ApiError, Errors } from '../../errors';
 import type { AccessState, AttemptStatus, Paginated, PublicTestSeries, SeriesReleaseState, TestSeries, TestStatus, User } from '@/types';
 import type { TestSeriesInput } from '../../validation';
+import { uuidSchema } from '../../validation';
 import { logAudit } from './auditService';
 import * as courseService from './courseService';
 
@@ -174,16 +175,21 @@ export async function listPublished(viewer: User | null): Promise<PublicTestSeri
 
   const defaultCourse = await courseService.getPublishedCourse();
   const result: PublicTestSeries[] = [];
+  const accessCache = new Map<string, { hasAccess: boolean; accessStartedAt: Date | null }>();
 
   for (const r of rows) {
     const courseId = r.course_id || r.resolved_course_id || defaultCourse?.id;
     let hasCourseAccess = false;
     let accessStartedAt: Date | null = null;
     if (courseId && viewer) {
-      hasCourseAccess = await courseService.hasCoursePurchase(viewer.id, courseId);
-      if (hasCourseAccess) {
-        accessStartedAt = await courseService.getAccessStartedAt(viewer.id, courseId);
+      if (!accessCache.has(courseId)) {
+        const hasAccess = await courseService.hasCoursePurchase(viewer.id, courseId);
+        const startedAt = hasAccess ? await courseService.getAccessStartedAt(viewer.id, courseId) : null;
+        accessCache.set(courseId, { hasAccess, accessStartedAt: startedAt });
       }
+      const cached = accessCache.get(courseId)!;
+      hasCourseAccess = cached.hasAccess;
+      accessStartedAt = cached.accessStartedAt;
     }
     result.push(toPublic(r, viewer, hasCourseAccess, accessStartedAt, attemptsMap.get(r.id)));
   }
@@ -237,6 +243,7 @@ export async function listPublishedForCourse(courseId: string, viewer: User | nu
 }
 
 export async function getPublished(id: string, viewer: User | null): Promise<PublicTestSeries | null> {
+  if (!uuidSchema.safeParse(id).success) return null;
   const row = await queryOne<PublicRow>(
     `SELECT ${PUBLIC_COLUMNS}
        FROM test_series ts
@@ -290,6 +297,9 @@ export async function getPublished(id: string, viewer: User | null): Promise<Pub
 /** Check if a user has access to a specific test series (considering drip schedule). */
 export async function hasAccess(userId: string, testSeriesId: string, userRole?: string): Promise<boolean> {
   if (userRole === 'ADMIN') return true;
+  if (!uuidSchema.safeParse(userId).success || !uuidSchema.safeParse(testSeriesId).success) {
+    return false;
+  }
 
   const series = await queryOne<{ is_free: boolean; course_id: string | null; status: string; release_after_days: number; course_status: string | null; course_is_free: boolean | null; course_price: number | null }>(
     `SELECT ts.is_free, ts.course_id, ts.status, ts.release_after_days, c.status AS course_status, c.is_free AS course_is_free, c.price AS course_price

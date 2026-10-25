@@ -20,8 +20,15 @@ export default async function DashboardPage() {
   const owned = purchases.filter((p) => p.status === 'SUCCESS');
   const inProgress = attempts.filter((a) => a.status === 'IN_PROGRESS');
   const completed = attempts.filter((a) => a.status === 'COMPLETED');
-  const firstName = user.name.split(' ')[0];
-  const initials = user.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+  const nameToUse = user?.name?.trim() || 'Student';
+  const firstName = nameToUse.split(' ')[0] || 'Student';
+  const initials = nameToUse
+    .split(' ')
+    .filter(Boolean)
+    .map((n: string) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || 'ST';
 
   return (
     <div className="min-h-screen bg-paper">

@@ -4,6 +4,7 @@ import { Errors } from '../../errors';
 import type { Course, CourseStatus, Paginated, User, PromoCode } from '@/types';
 import { logAudit } from './auditService';
 import { validatePromoCodeDetails } from './promoCodeService';
+import { uuidSchema } from '../../validation';
 
 const COURSE_COLUMNS = `c.id, c.title, c.description, c.price, c.discount_price, c.promo_code,
   c.currency, c.status, c.is_free, c.thumbnail_key, c.created_by, c.created_at, c.updated_at`;
@@ -32,6 +33,7 @@ export async function listPublishedCourses(): Promise<Course[]> {
 /** Returns the active published course (by id if provided, else most recently updated/created published course). Hidden promo_code for students. */
 export async function getPublishedCourse(courseId?: string): Promise<Course | null> {
   if (courseId) {
+    if (!uuidSchema.safeParse(courseId).success) return null;
     const row = await queryOne<Course>(
       `SELECT ${PUBLIC_COURSE_COLUMNS} FROM courses c WHERE c.id = $1 AND c.status = 'PUBLISHED'`,
       [courseId],
@@ -45,6 +47,7 @@ export async function getPublishedCourse(courseId?: string): Promise<Course | nu
 }
 
 export async function getById(id: string): Promise<Course | null> {
+  if (!uuidSchema.safeParse(id).success) return null;
   const row = await queryOne<Course>(`SELECT ${PUBLIC_COURSE_COLUMNS} FROM courses c WHERE c.id = $1`, [id]);
   return row ? withThumbnailUrl(row) : null;
 }
@@ -55,6 +58,9 @@ import { hasActiveFreeAccess } from './freeAccessService';
 
 /** Returns true if the user has a successful course purchase, active free access grant, or if the course is free. */
 export async function hasCoursePurchase(userId: string, courseId: string): Promise<boolean> {
+  if (!uuidSchema.safeParse(userId).success || !uuidSchema.safeParse(courseId).success) {
+    return false;
+  }
   const course = await queryOne<{ is_free: boolean; price: number }>(
     `SELECT is_free, price FROM courses WHERE id = $1`,
     [courseId],
@@ -92,6 +98,9 @@ export async function hasCoursePurchase(userId: string, courseId: string): Promi
 
 /** Returns the earliest successful course purchase date or free access grant date (access_started_at for drip schedule). */
 export async function getAccessStartedAt(userId: string, courseId: string): Promise<Date | null> {
+  if (!uuidSchema.safeParse(userId).success || !uuidSchema.safeParse(courseId).success) {
+    return null;
+  }
   const row = await queryOne<{ access_started_at: string }>(
     `SELECT MIN(created_at) AS access_started_at FROM purchases
      WHERE user_id = $1 AND course_id = $2 AND status = 'SUCCESS'`,
@@ -170,6 +179,7 @@ export async function adminList(opts: {
 }
 
 export async function adminGet(id: string) {
+  if (!uuidSchema.safeParse(id).success) throw Errors.notFound('Course');
   const row = await queryOne<Course & { test_series_count: number; purchase_count: number; revenue: number; free_access_count: number; free_access_value: number; total_access: number }>(
     `SELECT ${COURSE_COLUMNS},
             (SELECT COUNT(*) FROM test_series ts WHERE ts.course_id = c.id)::int AS test_series_count,

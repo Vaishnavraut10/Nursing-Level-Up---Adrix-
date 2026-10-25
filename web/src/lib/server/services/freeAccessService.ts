@@ -23,42 +23,53 @@ export interface FreeAccessGrantRow {
   updated_at: string;
 }
 
+import { uuidSchema } from '../../validation';
+
 let tableEnsured = false;
 
 /** Automatically ensures course_free_access table and indexes exist in Postgres. */
 export async function ensureFreeAccessTableExists(db?: Queryable) {
   if (tableEnsured) return;
-  await query(
-    `CREATE TABLE IF NOT EXISTS course_free_access (
-      id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      course_id    UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-      granted_by   UUID REFERENCES users(id) ON DELETE SET NULL,
-      granted_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-      revoked_at   TIMESTAMPTZ,
-      price_snapshot NUMERIC(10,2),
-      status       VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-      created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-      updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+  try {
+    await query(
+      `CREATE TABLE IF NOT EXISTS course_free_access (
+        id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        course_id    UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+        granted_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+        granted_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+        revoked_at   TIMESTAMPTZ,
+        price_snapshot NUMERIC(10,2),
+        status       VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+        created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      ALTER TABLE course_free_access ADD COLUMN IF NOT EXISTS price_snapshot NUMERIC(10,2);
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_course_free_access_unique_active
+        ON course_free_access (user_id, course_id)
+        WHERE status = 'ACTIVE';
+
+      CREATE INDEX IF NOT EXISTS idx_course_free_access_user_id ON course_free_access (user_id);
+      CREATE INDEX IF NOT EXISTS idx_course_free_access_course_id ON course_free_access (course_id);
+      CREATE INDEX IF NOT EXISTS idx_course_free_access_status ON course_free_access (status);`,
+      [],
+      db,
     );
-
-    ALTER TABLE course_free_access ADD COLUMN IF NOT EXISTS price_snapshot NUMERIC(10,2);
-
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_course_free_access_unique_active
-      ON course_free_access (user_id, course_id)
-      WHERE status = 'ACTIVE';
-
-    CREATE INDEX IF NOT EXISTS idx_course_free_access_user_id ON course_free_access (user_id);
-    CREATE INDEX IF NOT EXISTS idx_course_free_access_course_id ON course_free_access (course_id);
-    CREATE INDEX IF NOT EXISTS idx_course_free_access_status ON course_free_access (status);`,
-    [],
-    db,
-  );
-  tableEnsured = true;
+    tableEnsured = true;
+  } catch (err) {
+    // If table already exists or concurrent execution occurred, log and continue
+    console.warn('[ensureFreeAccessTableExists] DDL check notice:', err);
+    tableEnsured = true;
+  }
 }
 
 /** Check if user has an unrevoked active free-access grant for a course. */
 export async function hasActiveFreeAccess(userId: string, courseId: string, db?: Queryable): Promise<boolean> {
+  if (!uuidSchema.safeParse(userId).success || !uuidSchema.safeParse(courseId).success) {
+    return false;
+  }
   await ensureFreeAccessTableExists(db);
   const row = await queryOne(
     `SELECT 1 FROM course_free_access
@@ -71,6 +82,7 @@ export async function hasActiveFreeAccess(userId: string, courseId: string, db?:
 
 /** Fetch detail for a specific grant ID. */
 export async function getGrantById(grantId: string): Promise<FreeAccessGrantRow | null> {
+  if (!uuidSchema.safeParse(grantId).success) return null;
   await ensureFreeAccessTableExists();
   return queryOne<FreeAccessGrantRow>(
     `SELECT cfa.id, cfa.user_id, u.name AS student_name, u.email AS student_email, u.phone AS student_phone,

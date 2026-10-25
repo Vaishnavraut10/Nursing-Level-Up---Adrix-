@@ -6,23 +6,36 @@ import { findById, findByEmail } from './services/userService';
 import { Errors, ApiError } from '../errors';
 import type { User } from '@/types';
 
+import { uuidSchema } from '../validation';
+
 /**
  * The authenticated user, re-read from Postgres on every request (cached per request).
  * The signed session cookie only identifies *who*; role and status always come from the database,
  * so demoting or suspending a user takes effect immediately.
  */
 export const getCurrentUser = cache(async (): Promise<User | null> => {
-  const session = await auth();
-  const uid = session?.user?.id;
-  let user: User | null = null;
-  if (uid) {
-    user = await findById(uid);
+  try {
+    const session = await auth();
+    const uid = session?.user?.id;
+    let user: User | null = null;
+    if (uid && uuidSchema.safeParse(uid).success) {
+      user = await findById(uid);
+    }
+    if (!user && session?.user?.email) {
+      user = await findByEmail(session.user.email);
+    }
+    if (!user || user.status !== 'ACTIVE') return null;
+    return user;
+  } catch (err: unknown) {
+    if (err && typeof err === 'object' && 'digest' in err) {
+      const d = String((err as { digest?: string }).digest || '');
+      if (d === 'DYNAMIC_SERVER_USAGE' || d.startsWith('NEXT_REDIRECT')) {
+        throw err;
+      }
+    }
+    console.error('[getCurrentUser] Error resolving user session (fallback to guest):', err);
+    return null;
   }
-  if (!user && session?.user?.email) {
-    user = await findByEmail(session.user.email);
-  }
-  if (!user || user.status !== 'ACTIVE') return null;
-  return user;
 });
 
 // ---- API guards (throw ApiError → standard error envelope)

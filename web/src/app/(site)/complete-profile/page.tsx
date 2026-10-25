@@ -5,6 +5,7 @@ import { PhoneForm } from '@/components/auth/PhoneForm';
 import { requireUserPage, safeNext } from '@/lib/server/session';
 
 export const metadata: Metadata = { title: 'Complete your profile' };
+export const dynamic = 'force-dynamic';
 
 export default async function CompleteProfilePage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const { next: rawNext } = await searchParams;

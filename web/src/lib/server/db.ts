@@ -11,7 +11,7 @@ const globalForDb = globalThis as unknown as { __pgPool?: pg.Pool };
 function createPool() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error('DATABASE_URL is not configured');
-  return new pg.Pool({
+  const pool = new pg.Pool({
     connectionString,
     max: Number(process.env.DB_POOL_MAX ?? 10),
     // Neon closes idle connections aggressively; keep them alive with TCP pings.
@@ -24,6 +24,13 @@ function createPool() {
     // Allow the Node.js process to exit cleanly in dev (hot-reloads).
     allowExitOnIdle: true,
   });
+
+  // CRITICAL for Vercel/serverless stability: prevent unhandled error crash when Neon closes an idle client
+  pool.on('error', (err) => {
+    console.error('[pg-pool] Unexpected error on idle client (handled):', err?.message || err);
+  });
+
+  return pool;
 }
 
 export function getPool(): pg.Pool {
