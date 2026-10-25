@@ -23,7 +23,7 @@ DO $$ BEGIN
   CREATE TYPE question_source AS ENUM ('MANUAL', 'IMPORTED', 'AI_GENERATED');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
-  CREATE TYPE payment_provider AS ENUM ('RAZORPAY', 'STRIPE');
+  CREATE TYPE payment_provider AS ENUM ('RAZORPAY', 'STRIPE', 'FREE', 'PROMO');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   CREATE TYPE purchase_status AS ENUM ('PENDING', 'SUCCESS', 'FAILED', 'CANCELLED', 'REFUNDED');
