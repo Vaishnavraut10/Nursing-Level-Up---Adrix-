@@ -90,7 +90,7 @@ export async function dashboard() {
         ORDER BY p.created_at DESC LIMIT 5`,
     ),
     query<Attempt>(
-      `SELECT a.id, a.status, a.percentage, a.score, a.total_questions, a.started_at, a.submitted_at,
+      `SELECT a.id, a.status, a.percentage::float AS percentage, a.score::float AS score, a.total_questions, a.started_at, a.submitted_at,
               u.name AS user_name, ts.title AS test_title
          FROM attempts a JOIN users u ON u.id = a.user_id JOIN test_series ts ON ts.id = a.test_series_id
         ORDER BY a.started_at DESC LIMIT 5`,
@@ -461,8 +461,8 @@ export async function listAttempts(opts: {
   const [{ total }] = await query<{ total: number }>(`SELECT COUNT(*)::int AS total ${from}`, params);
   params.push(opts.pageSize, (opts.page - 1) * opts.pageSize);
   const items = await query<Attempt>(
-    `SELECT a.id, a.user_id, a.test_series_id, a.started_at, a.submitted_at, a.score, a.total_questions,
-            a.correct_answers, a.incorrect_answers, a.unanswered, a.percentage, a.time_taken_seconds, a.status,
+    `SELECT a.id, a.user_id, a.test_series_id, a.started_at, a.submitted_at, a.score::float AS score, a.total_questions,
+            a.correct_answers, a.incorrect_answers, a.unanswered, a.percentage::float AS percentage, a.time_taken_seconds, a.status,
             u.name AS user_name, u.email AS user_email, ts.title AS test_title
        ${from}
       ORDER BY a.started_at DESC

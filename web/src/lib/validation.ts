@@ -48,6 +48,7 @@ export const testSeriesBaseSchema = z.object({
     .int('Duration must be a whole number of minutes')
     .min(1, 'Duration must be greater than 0')
     .max(600, 'Duration must be at most 600 minutes'),
+  negative_marks: z.coerce.number().min(0, 'Negative marks cannot be negative').max(10).default(0),
   instructions: optionalText(10000),
   status: testStatusSchema.default('DRAFT'),
   course_id: z.string().uuid().optional().nullable().transform((v) => v || null),

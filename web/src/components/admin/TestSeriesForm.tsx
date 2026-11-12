@@ -9,7 +9,7 @@ import type { TestSeries } from '@/types';
 
 const DEFAULT_INSTRUCTIONS = [
   'Each question has exactly one correct answer.',
-  'There is no negative marking.',
+  'Review the negative marking rules specified for this test.',
   'You can move between questions and mark any of them for review.',
   'The test submits automatically when the timer reaches zero.',
 ].join('\n');
@@ -30,6 +30,7 @@ export function TestSeriesForm({
     is_free: initial?.is_free ?? true,
     price: String(initial?.price ?? 0),
     duration_minutes: String(initial?.duration_minutes ?? 30),
+    negative_marks: String(initial?.negative_marks ?? 0),
     instructions: initial?.instructions ?? DEFAULT_INSTRUCTIONS,
     status: initial?.status ?? 'DRAFT',
     release_after_days: String(initial?.release_after_days ?? 0),
@@ -48,6 +49,7 @@ export function TestSeriesForm({
       course_id: values.course_id || null,
       price: values.is_free ? 0 : Number(values.price),
       duration_minutes: Number(values.duration_minutes),
+      negative_marks: Number(values.negative_marks),
       release_after_days: Number(values.release_after_days),
       currency: 'INR' as const,
     };
@@ -95,18 +97,21 @@ export function TestSeriesForm({
             </Select>
           </Field>
         )}
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <Field label="Pricing" htmlFor="is_free">
             <Select id="is_free" value={values.is_free ? 'free' : 'paid'} onChange={(e) => setValues((v) => ({ ...v, is_free: e.target.value === 'free', price: e.target.value === 'free' ? '0' : '0' }))}>
               <option value="free">Free</option>
               <option value="paid">Course Pass</option>
             </Select>
           </Field>
-          <Field label="Drip Release (Day)" htmlFor="release_after_days" error={errors.release_after_days} hint="0 = Day 1 (Instant), 1 = Day 2 (5 PM IST)...">
-            <Input id="release_after_days" type="number" min={0} max={365} value={values.release_after_days} onChange={set('release_after_days')} aria-invalid={Boolean(errors.release_after_days)} />
-          </Field>
           <Field label="Duration (minutes)" htmlFor="duration" error={errors.duration_minutes} required>
             <Input id="duration" type="number" min={1} max={600} value={values.duration_minutes} onChange={set('duration_minutes')} aria-invalid={Boolean(errors.duration_minutes)} />
+          </Field>
+          <Field label="Negative Marks per Wrong" htmlFor="negative_marks" error={errors.negative_marks} hint="e.g. 0 for none, 0.25, 0.33, 1">
+            <Input id="negative_marks" type="number" step="0.01" min={0} max={10} value={values.negative_marks} onChange={set('negative_marks')} aria-invalid={Boolean(errors.negative_marks)} />
+          </Field>
+          <Field label="Drip Release (Day)" htmlFor="release_after_days" error={errors.release_after_days} hint="0 = Day 1 (Instant), 1 = Day 2...">
+            <Input id="release_after_days" type="number" min={0} max={365} value={values.release_after_days} onChange={set('release_after_days')} aria-invalid={Boolean(errors.release_after_days)} />
           </Field>
           <Field label="Legacy Price" htmlFor="price" error={errors.price} hint="Optional (bundled in course)">
             <Input id="price" type="number" min={0} step="1" value={values.is_free ? '0' : values.price} onChange={set('price')} disabled={values.is_free} aria-invalid={Boolean(errors.price)} />

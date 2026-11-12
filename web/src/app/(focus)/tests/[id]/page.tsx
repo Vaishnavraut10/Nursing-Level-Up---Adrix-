@@ -38,6 +38,7 @@ export default async function TestPage({ params }: { params: Promise<{ id: strin
       title={series.title}
       durationMinutes={series.duration_minutes}
       questionCount={series.question_count}
+      negativeMarks={series.negative_marks}
       instructions={series.instructions}
     />
   );

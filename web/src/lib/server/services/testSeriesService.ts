@@ -11,7 +11,7 @@ import * as courseService from './courseService';
 const QUESTION_COUNT = `(SELECT COUNT(*) FROM questions q WHERE q.test_series_id = ts.id AND q.review_status = 'APPROVED')::int`;
 
 const PUBLIC_COLUMNS = `ts.id, ts.title, ts.description, ts.price, ts.currency, ts.is_free, ts.duration_minutes,
-  ts.instructions, ts.published_at, ts.course_id, ts.release_after_days, ${QUESTION_COUNT} AS question_count,
+  ts.negative_marks::float AS negative_marks, ts.instructions, ts.published_at, ts.course_id, ts.release_after_days, ${QUESTION_COUNT} AS question_count,
   COALESCE(
     (SELECT c.thumbnail_key FROM courses c WHERE c.id = ts.course_id),
     (SELECT c2.thumbnail_key FROM courses c2 WHERE c2.status = 'PUBLISHED' ORDER BY c2.created_at LIMIT 1)
@@ -42,7 +42,7 @@ const PUBLIC_COLUMNS = `ts.id, ts.title, ts.description, ts.price, ts.currency, 
   ) AS course_discount_price`;
 
 const ADMIN_COLUMNS = `ts.id, ts.title, ts.description, ts.price, ts.currency, ts.is_free, ts.duration_minutes,
-  ts.status, ts.instructions, ts.course_id, ts.release_after_days, ts.created_at, ts.updated_at, ts.published_at, ${QUESTION_COUNT} AS question_count`;
+  ts.negative_marks::float AS negative_marks, ts.status, ts.instructions, ts.course_id, ts.release_after_days, ts.created_at, ts.updated_at, ts.published_at, ${QUESTION_COUNT} AS question_count`;
 
 /**
  * IST release time: 5:00 PM IST = 11:30 UTC.
@@ -121,6 +121,7 @@ function toPublic(
     currency: row.currency,
     is_free: isFree,
     duration_minutes: row.duration_minutes,
+    negative_marks: Number(row.negative_marks ?? 0),
     instructions: row.instructions,
     published_at: row.published_at,
     question_count: row.question_count,
@@ -162,7 +163,7 @@ export async function listPublished(viewer: User | null): Promise<PublicTestSeri
       score: number | null;
       percentage: number | null;
     }>(
-      `SELECT DISTINCT ON (test_series_id) id, test_series_id, status, score, percentage
+      `SELECT DISTINCT ON (test_series_id) id, test_series_id, status, score::float AS score, percentage::float AS percentage
          FROM attempts
         WHERE user_id = $1 AND test_series_id = ANY($2::uuid[])
         ORDER BY test_series_id, started_at DESC`,
@@ -228,7 +229,7 @@ export async function listPublishedForCourse(courseId: string, viewer: User | nu
       score: number | null;
       percentage: number | null;
     }>(
-      `SELECT DISTINCT ON (test_series_id) id, test_series_id, status, score, percentage
+      `SELECT DISTINCT ON (test_series_id) id, test_series_id, status, score::float AS score, percentage::float AS percentage
          FROM attempts
         WHERE user_id = $1 AND test_series_id = ANY($2::uuid[])
         ORDER BY test_series_id, started_at DESC`,
@@ -283,7 +284,7 @@ export async function getPublished(id: string, viewer: User | null): Promise<Pub
       score: number | null;
       percentage: number | null;
     }>(
-      `SELECT id, status, score, percentage FROM attempts
+      `SELECT id, status, score::float AS score, percentage::float AS percentage FROM attempts
         WHERE user_id = $1 AND test_series_id = $2
         ORDER BY started_at DESC LIMIT 1`,
       [viewer.id, id],
@@ -401,10 +402,10 @@ export async function create(input: TestSeriesInput, admin: User) {
       throw new ApiError(409, 'CONFLICT', 'Create the test as a draft, add questions, then publish it');
     }
     const row = await queryOne<{ id: string }>(
-      `INSERT INTO test_series (title, description, price, currency, is_free, duration_minutes, status, instructions, created_by, course_id, release_after_days)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+      `INSERT INTO test_series (title, description, price, currency, is_free, duration_minutes, negative_marks, status, instructions, created_by, course_id, release_after_days)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
       [input.title, input.description, input.price, input.currency, input.is_free, input.duration_minutes,
-        input.status, input.instructions, admin.id, input.course_id ?? null, input.release_after_days ?? 0],
+        input.negative_marks ?? 0, input.status, input.instructions, admin.id, input.course_id ?? null, input.release_after_days ?? 0],
       db,
     );
     await logAudit(admin.id, 'TEST_CREATED', 'test_series', row!.id, { title: input.title }, db);
@@ -420,11 +421,11 @@ export async function update(id: string, input: TestSeriesInput, admin: User) {
     await query(
       `UPDATE test_series
           SET title = $2, description = $3, price = $4, currency = $5, is_free = $6, duration_minutes = $7,
-              status = $8, instructions = $9, course_id = $10, release_after_days = $11,
-              published_at = CASE WHEN $8::test_status = 'PUBLISHED' AND published_at IS NULL THEN now() ELSE published_at END
+              negative_marks = $8, status = $9, instructions = $10, course_id = $11, release_after_days = $12,
+              published_at = CASE WHEN $9::test_status = 'PUBLISHED' AND published_at IS NULL THEN now() ELSE published_at END
         WHERE id = $1`,
       [id, input.title, input.description, input.price, input.currency, input.is_free, input.duration_minutes,
-        input.status, input.instructions, input.course_id ?? null, input.release_after_days ?? 0],
+        input.negative_marks ?? 0, input.status, input.instructions, input.course_id ?? null, input.release_after_days ?? 0],
       db,
     );
     await logAudit(admin.id, 'TEST_UPDATED', 'test_series', id, { fields: Object.keys(input) }, db);

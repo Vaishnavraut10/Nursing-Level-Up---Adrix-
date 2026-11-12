@@ -27,7 +27,7 @@ export default async function AdminTestSeriesPage({ searchParams }: { searchPara
       </FilterBar>
       <Table>
         <thead>
-          <tr><Th>Title</Th><Th>Access</Th><Th>Release Day</Th><Th className="text-right">Questions</Th><Th className="text-right">Attempts</Th><Th>Status</Th><Th>Created</Th><Th /></tr>
+          <tr><Th>Title</Th><Th>Access</Th><Th>Release Day</Th><Th className="text-right">Questions</Th><Th className="text-right">Neg. Mark</Th><Th className="text-right">Attempts</Th><Th>Status</Th><Th>Created</Th><Th /></tr>
         </thead>
         <tbody>
           {data.items.map((s) => (
@@ -36,6 +36,7 @@ export default async function AdminTestSeriesPage({ searchParams }: { searchPara
               <Td>{s.is_free ? 'Free' : 'Course Pass'}</Td>
               <Td>{s.release_after_days === 0 ? 'Day 1 (Instant)' : `Day ${s.release_after_days + 1} (5 PM)`}</Td>
               <Td className="text-right tabular-nums">{s.question_count}</Td>
+              <Td className="text-right tabular-nums">{s.negative_marks > 0 ? `-${s.negative_marks}` : '—'}</Td>
               <Td className="text-right tabular-nums">{s.attempt_count}</Td>
               <Td><StatusBadge status={s.status} /></Td>
               <Td>{formatDate(s.created_at)}</Td>
@@ -46,7 +47,7 @@ export default async function AdminTestSeriesPage({ searchParams }: { searchPara
               </Td>
             </tr>
           ))}
-          {data.items.length === 0 && <tr><Td colSpan={8} className="py-10 text-center text-muted">No test series found.</Td></tr>}
+          {data.items.length === 0 && <tr><Td colSpan={9} className="py-10 text-center text-muted">No test series found.</Td></tr>}
         </tbody>
       </Table>
       <Pagination base="/admin/test-series" params={sp} page={data.page} totalPages={data.totalPages} total={data.total} />

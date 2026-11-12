@@ -19,14 +19,16 @@ export interface ScoreResult {
 }
 
 /**
- * @param questionIds  the exact questions served for the attempt, in order
- * @param answerKey    questionId → correct option, loaded from the database
- * @param selections   questionId → option chosen by the student; ids outside questionIds are ignored
+ * @param questionIds    the exact questions served for the attempt, in order
+ * @param answerKey      questionId → correct option, loaded from the database
+ * @param selections     questionId → option chosen by the student; ids outside questionIds are ignored
+ * @param negativeMarks  deduction per incorrect answer (default 0)
  */
 export function scoreAttempt(
   questionIds: string[],
   answerKey: Map<string, AnswerOption>,
   selections: Map<string, AnswerOption | null>,
+  negativeMarks: number = 0,
 ): ScoreResult {
   let correct = 0;
   let incorrect = 0;
@@ -43,7 +45,9 @@ export function scoreAttempt(
     return { questionId, selectedAnswer, isCorrect };
   });
   const total = questionIds.length;
-  const percentage = total === 0 ? 0 : Math.round((correct / total) * 10000) / 100;
-  // One mark per correct answer, no negative marking (shown in test instructions).
-  return { answers, total, correct, incorrect, unanswered, score: correct, percentage };
+  const deduction = Number(negativeMarks ?? 0);
+  const rawScore = correct - incorrect * deduction;
+  const score = Math.max(0, Math.round(rawScore * 100) / 100);
+  const percentage = total === 0 ? 0 : Math.max(0, Math.round((score / total) * 10000) / 100);
+  return { answers, total, correct, incorrect, unanswered, score, percentage };
 }

@@ -98,7 +98,7 @@ export default async function TestSeriesDetailPage({ params }: { params: Promise
           <h1 className="mt-3 text-3xl font-semibold leading-tight sm:text-4xl">{series.title}</h1>
           {series.description && <p className="mt-4 text-lg leading-relaxed text-ink-2">{series.description}</p>}
 
-          <dl className="mt-8 grid grid-cols-3 gap-4 rounded-card border border-line bg-surface p-5">
+          <dl className="mt-8 grid grid-cols-2 gap-4 rounded-card border border-line bg-surface p-5 sm:grid-cols-4">
             <div>
               <dt className="text-xs text-muted">Questions</dt>
               <dd className="mt-1 font-serif text-2xl">{series.question_count}</dd>
@@ -106,6 +106,12 @@ export default async function TestSeriesDetailPage({ params }: { params: Promise
             <div>
               <dt className="text-xs text-muted">Duration</dt>
               <dd className="mt-1 font-serif text-2xl">{series.duration_minutes} min</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted">Negative Marks</dt>
+              <dd className="mt-1 font-serif text-xl">
+                {series.negative_marks > 0 ? `-${series.negative_marks}` : 'None'}
+              </dd>
             </div>
             <div>
               <dt className="text-xs text-muted">Access</dt>

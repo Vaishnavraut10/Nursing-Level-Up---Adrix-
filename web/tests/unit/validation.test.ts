@@ -31,6 +31,16 @@ describe('testSeriesInputSchema', () => {
     expect(testSeriesInputSchema.safeParse({ ...base, title: '  ' }).success).toBe(false);
   });
   it('rejects an unknown status', () => expect(testSeriesInputSchema.safeParse({ ...base, status: 'LIVE' }).success).toBe(false));
+  it('accepts valid negative marks and defaults to 0', () => {
+    const parsedDefault = testSeriesInputSchema.parse(base);
+    expect(parsedDefault.negative_marks).toBe(0);
+
+    const parsedCustom = testSeriesInputSchema.parse({ ...base, negative_marks: 0.25 });
+    expect(parsedCustom.negative_marks).toBe(0.25);
+  });
+  it('rejects negative values for negative_marks', () => {
+    expect(testSeriesInputSchema.safeParse({ ...base, negative_marks: -1 }).success).toBe(false);
+  });
 });
 
 describe('questionInputSchema', () => {

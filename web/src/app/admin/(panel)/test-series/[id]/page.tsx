@@ -23,7 +23,7 @@ export default async function AdminTestSeriesDetail({ params }: { params: Promis
       <AdminHeader
         back={{ href: '/admin/test-series', label: 'Test series' }}
         title={<span className="flex flex-wrap items-center gap-3">{s.title} <StatusBadge status={s.status} /></span>}
-        description={`${formatPrice(s.price, s.is_free, s.currency)} · ${s.duration_minutes} minutes · created ${formatDateTime(s.created_at)}`}
+        description={`${formatPrice(s.price, s.is_free, s.currency)} · ${s.duration_minutes} minutes · ${s.negative_marks > 0 ? `-${s.negative_marks} negative marking` : 'No negative marking'} · created ${formatDateTime(s.created_at)}`}
         actions={
           <>
             <ButtonLink href={`/admin/test-series/${id}/edit`} variant="secondary" size="sm">Edit</ButtonLink>

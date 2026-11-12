@@ -26,4 +26,40 @@ describe('scoreAttempt', () => {
   it('handles an empty attempt without dividing by zero', () => {
     expect(scoreAttempt([], key, new Map()).percentage).toBe(0);
   });
+
+  it('deducts negative marks for incorrect answers', () => {
+    // 2 correct, 1 incorrect, 1 unanswered, negativeMarks = 0.25 => raw score = 2 - 0.25 = 1.75
+    const r = scoreAttempt(
+      ids,
+      key,
+      new Map<string, AnswerOption | null>([['q1', 'A'], ['q2', 'B'], ['q3', 'A']]),
+      0.25,
+    );
+    expect(r).toMatchObject({
+      total: 4,
+      correct: 2,
+      incorrect: 1,
+      unanswered: 1,
+      score: 1.75,
+      percentage: 43.75,
+    });
+  });
+
+  it('clamps negative score to 0', () => {
+    // 1 correct, 3 incorrect, negativeMarks = 0.5 => raw score = 1 - 1.5 = -0.5 => clamped to 0
+    const r = scoreAttempt(
+      ids,
+      key,
+      new Map<string, AnswerOption | null>([['q1', 'A'], ['q2', 'A'], ['q3', 'A'], ['q4', 'A']]),
+      0.5,
+    );
+    expect(r).toMatchObject({
+      total: 4,
+      correct: 1,
+      incorrect: 3,
+      unanswered: 0,
+      score: 0,
+      percentage: 0,
+    });
+  });
 });

@@ -32,12 +32,14 @@ export function TestRunner({
   title,
   durationMinutes,
   questionCount,
+  negativeMarks = 0,
   instructions,
 }: {
   testSeriesId: string;
   title: string;
   durationMinutes: number;
   questionCount: number;
+  negativeMarks?: number;
   instructions: string | null;
 }) {
   const router = useRouter();
@@ -417,9 +419,10 @@ export function TestRunner({
         <Card className="p-7 sm:p-9">
           <div className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-600">Before you begin</div>
           <h1 className="mt-2 text-2xl font-semibold leading-snug">{title}</h1>
-          <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+          <div className="mt-5 grid grid-cols-3 gap-3 text-sm">
             <div className="rounded-lg bg-sunken p-3"><div className="text-muted">Questions</div><div className="font-serif text-xl">{questionCount}</div></div>
             <div className="rounded-lg bg-sunken p-3"><div className="text-muted">Time limit</div><div className="font-serif text-xl">{durationMinutes} min</div></div>
+            <div className="rounded-lg bg-sunken p-3"><div className="text-muted">Negative marks</div><div className="font-serif text-xl">{negativeMarks > 0 ? `-${negativeMarks}` : 'None'}</div></div>
           </div>
           {instructions && (
             <ul className="mt-5 space-y-1.5 text-sm text-ink-2">
@@ -621,6 +624,9 @@ export function TestRunner({
               <div className="rounded-lg bg-sunken p-2"><dt className="text-xs text-muted">Unanswered</dt><dd className="font-serif text-xl">{counts.unanswered}</dd></div>
               <div className="rounded-lg bg-warn-50 p-2"><dt className="text-xs text-warn">Marked</dt><dd className="font-serif text-xl">{counts.marked}</dd></div>
             </dl>
+            {negativeMarks > 0 && phase !== 'submitting' && (
+              <p className="mt-2 text-xs text-bad">Incorrect answers deduct {negativeMarks} marks each.</p>
+            )}
             {counts.unanswered > 0 && phase !== 'submitting' && (
               <p className="mt-3 text-sm text-muted">Unanswered questions score zero. You can go back and answer them.</p>
             )}

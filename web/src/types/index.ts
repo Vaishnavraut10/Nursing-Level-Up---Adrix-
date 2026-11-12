@@ -54,6 +54,7 @@ export interface TestSeries {
   currency: string;
   is_free: boolean;
   duration_minutes: number;
+  negative_marks: number;
   status: TestStatus;
   instructions: string | null;
   course_id: string | null;
@@ -186,6 +187,7 @@ export interface PublicTestSeries {
   currency: string;
   is_free: boolean;
   duration_minutes: number;
+  negative_marks: number;
   instructions: string | null;
   published_at: string | null;
   question_count: number;

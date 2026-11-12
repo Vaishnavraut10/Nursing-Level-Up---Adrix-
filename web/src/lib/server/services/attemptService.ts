@@ -11,8 +11,8 @@ export const SUBMIT_GRACE_SECONDS = 120;
 
 type AttemptRow = Attempt & { question_ids: string[] };
 
-const ATTEMPT_COLUMNS = `a.id, a.user_id, a.test_series_id, a.started_at, a.submitted_at, a.score, a.total_questions,
-  a.correct_answers, a.incorrect_answers, a.unanswered, a.percentage, a.time_taken_seconds, a.status`;
+const ATTEMPT_COLUMNS = `a.id, a.user_id, a.test_series_id, a.started_at, a.submitted_at, a.score::float AS score, a.total_questions,
+  a.correct_answers, a.incorrect_answers, a.unanswered, a.percentage::float AS percentage, a.time_taken_seconds, a.status`;
 
 export interface StartedAttempt {
   attempt: {
@@ -71,10 +71,11 @@ export async function start(user: User, testSeriesId: string): Promise<StartedAt
       );
     }
 
-    const open = await queryOne<AttemptRow & { expired: boolean }>(
-      `SELECT ${ATTEMPT_COLUMNS}, a.question_ids,
+    const open = await queryOne<AttemptRow & { expired: boolean; negative_marks: number }>(
+      `SELECT ${ATTEMPT_COLUMNS}, a.question_ids, ts.negative_marks::float AS negative_marks,
               now() > a.started_at + make_interval(mins => $3) AS expired
          FROM attempts a
+         JOIN test_series ts ON ts.id = a.test_series_id
         WHERE a.user_id = $1 AND a.test_series_id = $2 AND a.status = 'IN_PROGRESS'
         ORDER BY a.started_at DESC LIMIT 1`,
       [user.id, testSeriesId, series.duration_minutes],
@@ -149,8 +150,8 @@ async function loadOwnedOpenAttempt(
   testSeriesId: string,
   attemptId: string,
 ) {
-  const attempt = await queryOne<AttemptRow & { duration_minutes: number; seconds_elapsed: number }>(
-    `SELECT ${ATTEMPT_COLUMNS}, a.question_ids, ts.duration_minutes,
+  const attempt = await queryOne<AttemptRow & { duration_minutes: number; negative_marks: number; seconds_elapsed: number }>(
+    `SELECT ${ATTEMPT_COLUMNS}, a.question_ids, ts.duration_minutes, ts.negative_marks::float AS negative_marks,
             EXTRACT(EPOCH FROM (now() - a.started_at))::int AS seconds_elapsed
        FROM attempts a JOIN test_series ts ON ts.id = a.test_series_id
       WHERE a.id = $1 FOR UPDATE OF a`,
@@ -192,7 +193,7 @@ export async function saveAnswers(
 
 async function finalize(
   db: Parameters<typeof query>[2],
-  attempt: AttemptRow & { duration_minutes?: number },
+  attempt: AttemptRow & { duration_minutes?: number; negative_marks?: number },
   submitted: Map<string, AnswerOption | null>,
   late: boolean,
 ) {
@@ -211,7 +212,13 @@ async function finalize(
   // A late submission cannot change answers after time expired; only autosaved answers count.
   if (!late) for (const [qid, ans] of submitted) selections.set(qid, ans);
 
-  const result = scoreAttempt(attempt.question_ids, new Map(key.map((k) => [k.id, k.correct_answer])), selections);
+  const negativeMarks = Number(attempt.negative_marks ?? 0);
+  const result = scoreAttempt(
+    attempt.question_ids,
+    new Map(key.map((k) => [k.id, k.correct_answer])),
+    selections,
+    negativeMarks,
+  );
   await query(
     `INSERT INTO user_answers (attempt_id, question_id, selected_answer, is_correct)
      SELECT $1, v.qid, v.ans::answer_option, v.ok FROM unnest($2::uuid[], $3::text[], $4::boolean[]) AS v(qid, ans, ok)
@@ -334,7 +341,7 @@ export async function getAttemptForUserAndTest(userId: string, testSeriesId: str
     submitted_at: string | null;
     total_questions: number;
   }>(
-    `SELECT id, status, score, percentage, started_at, submitted_at, total_questions
+    `SELECT id, status, score::float AS score, percentage::float AS percentage, started_at, submitted_at, total_questions
        FROM attempts
       WHERE user_id = $1 AND test_series_id = $2
       ORDER BY started_at DESC LIMIT 1`,
