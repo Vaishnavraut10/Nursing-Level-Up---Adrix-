@@ -2,16 +2,19 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import type { Course } from '@/types';
+import type { Course, Note } from '@/types';
 import { Container } from '@/components/ui';
+import { formatBytes } from '@/lib/format';
 
 interface CourseCatalogProps {
   courses: Course[];
+  notes?: Note[];
+  totalNotesCount?: number;
 }
 
 type FilterType = 'all' | 'paid' | 'free';
 
-export function CourseCatalog({ courses = [] }: CourseCatalogProps) {
+export function CourseCatalog({ courses = [], notes = [], totalNotesCount = 0 }: CourseCatalogProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
 
@@ -106,6 +109,14 @@ export function CourseCatalog({ courses = [] }: CourseCatalogProps) {
                 <span className="text-muted">Free Test Series</span>
               </div>
             )}
+            <Link
+              href="/notes"
+              className="flex items-center gap-2 rounded-xl border border-brand-200/90 bg-brand-50/70 px-3.5 py-1.5 text-xs sm:text-sm shadow-2xs transition-all hover:bg-brand-100 hover:border-brand-300"
+            >
+              <span className="flex size-2 rounded-full bg-brand-600" />
+              <span className="font-semibold text-brand-900">{totalNotesCount > 0 ? totalNotesCount : 'PDF'}</span>
+              <span className="text-brand-700">Study Notes & Materials →</span>
+            </Link>
           </div>
         </header>
 
@@ -280,6 +291,161 @@ export function CourseCatalog({ courses = [] }: CourseCatalogProps) {
             </div>
           </section>
         )}
+
+        {/* ── 3. Study Notes & Materials Section ── */}
+        <section aria-labelledby="notes-catalog-heading" className="mt-16 pt-10 border-t border-line/80">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-8">
+            <div>
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-brand-700">
+                <span className="size-1.5 rounded-full bg-brand-600" />
+                Faculty Handouts & Revision Notes
+              </div>
+              <h2 id="notes-catalog-heading" className="mt-1 font-serif text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+                Study Notes & PDFs
+              </h2>
+              <p className="mt-1 max-w-2xl text-xs text-muted sm:text-sm">
+                Download high-yield revision summaries, clinical handbooks, and topic notes in PDF and Word document format.
+              </p>
+            </div>
+            <Link
+              href="/notes"
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-all hover:bg-brand-700 self-start sm:self-auto"
+            >
+              <span>Explore All Notes</span>
+              <svg className="size-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 8h10M9 4l4 4-4 4" />
+              </svg>
+            </Link>
+          </div>
+
+          {notes && notes.length > 0 ? (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {notes.slice(0, 6).map((note) => (
+                <div
+                  key={note.id}
+                  className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-line/80 bg-surface p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md"
+                >
+                  <div>
+                    {/* Header: Icon, Format Badge & Subject */}
+                    <div className="flex items-start justify-between gap-3">
+                      {note.file_type === 'PDF' ? (
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-700 ring-1 ring-rose-200/80">
+                          <svg className="size-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      ) : (
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700 ring-1 ring-blue-200/80">
+                          <svg className="size-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
+                          </svg>
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap items-center justify-end gap-1.5">
+                        {note.subject && (
+                          <span className="rounded-md bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700">
+                            {note.subject}
+                          </span>
+                        )}
+                        <span
+                          className={`rounded-md px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
+                            note.file_type === 'PDF'
+                              ? 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200'
+                              : 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200'
+                          }`}
+                        >
+                          {note.file_type}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Title */}
+                    <h3 className="mt-3.5 font-serif text-base font-semibold text-ink group-hover:text-brand-700 transition-colors line-clamp-2">
+                      <Link href="/notes" className="hover:underline">
+                        {note.title}
+                      </Link>
+                    </h3>
+
+                    {/* Description */}
+                    {note.description ? (
+                      <p className="mt-1.5 text-xs text-muted line-clamp-2 leading-relaxed">
+                        {note.description}
+                      </p>
+                    ) : (
+                      <p className="mt-1.5 text-xs text-muted/70 line-clamp-1 italic">
+                        {note.file_name}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Footer & Action */}
+                  <div className="mt-4 flex items-center justify-between border-t border-line/60 pt-3">
+                    <span className="text-xs font-medium text-muted tabular-nums">
+                      {formatBytes(note.size_bytes)}
+                    </span>
+                    <Link
+                      href="/notes"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline"
+                    >
+                      <span>View & Download</span>
+                      <svg className="size-3.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-line/80 bg-surface/60 p-8 text-center">
+              <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 ring-1 ring-brand-200/50">
+                <svg className="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                  <polyline points="10 9 9 9 8 9" />
+                </svg>
+              </div>
+              <h3 className="mt-3 font-serif text-lg font-semibold text-ink">Study Notes & PDFs</h3>
+              <p className="mt-1 text-xs text-muted max-w-md mx-auto">
+                Comprehensive faculty lecture handouts and revision summaries will be published here.
+              </p>
+              <Link
+                href="/notes"
+                className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-brand-700 transition-colors"
+              >
+                Go to Study Notes Section
+              </Link>
+            </div>
+          )}
+
+          {/* Bottom Banner Linking to Notes Page */}
+          <div className="mt-6 flex flex-col items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-brand-900 to-brand-800 p-6 text-white shadow-sm sm:flex-row sm:p-7">
+            <div className="flex items-center gap-4">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white/10 text-brand-200 ring-1 ring-white/15">
+                <svg className="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
+                  <path d="M6 6h10" />
+                  <path d="M6 10h10" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="font-serif text-lg font-bold">Nursing Study Library</h4>
+                <p className="mt-0.5 text-xs text-brand-100">
+                  Access all faculty handouts, clinical summaries, and downloadable PDF/Word notes.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/notes"
+              className="shrink-0 rounded-xl bg-white px-5 py-2.5 text-xs font-bold text-brand-900 shadow-sm transition-transform hover:scale-[1.02] active:scale-[0.98]"
+            >
+              Open Notes Section →
+            </Link>
+          </div>
+        </section>
       </Container>
     </div>
   );

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { listPublishedCourses } from '@/lib/server/services/courseService';
+import { listPublishedNotes } from '@/lib/server/services/noteService';
 import { CourseCatalog } from '@/components/course/CourseCatalog';
 
 export const metadata: Metadata = {
@@ -13,8 +14,8 @@ export const dynamic = 'force-dynamic';
 
 /**
  * Main Course Listing Page (Root `/`)
- * Displays course cards only — never individual tests.
- * Categorized into Paid Course Series and Free Test Series.
+ * Displays course cards, categorized into Paid Course Series and Free Test Series,
+ * alongside a featured preview section for Study Notes & Materials.
  */
 export default async function HomePage({
   searchParams,
@@ -26,6 +27,16 @@ export default async function HomePage({
     redirect(`/course?id=${sp.id}`);
   }
 
-  const courses = await listPublishedCourses();
-  return <CourseCatalog courses={courses} />;
+  const [courses, notesData] = await Promise.all([
+    listPublishedCourses(),
+    listPublishedNotes({ page: 1, pageSize: 6 }),
+  ]);
+
+  return (
+    <CourseCatalog
+      courses={courses}
+      notes={notesData.items}
+      totalNotesCount={notesData.total}
+    />
+  );
 }
