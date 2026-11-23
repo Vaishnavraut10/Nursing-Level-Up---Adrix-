@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectNoteFileType, normalizeNoteMime } from '@/lib/notes';
+import { detectNoteFileType, normalizeNoteMime, COMMON_PYQ_EXAMS, COMMON_NOTE_SUBJECTS } from '@/lib/notes';
 import { formatBytes } from '@/lib/format';
 
 describe('detectNoteFileType', () => {
@@ -50,5 +50,19 @@ describe('formatBytes', () => {
     expect(formatBytes(1024 * 1024)).toBe('1.0 MB');
     expect(formatBytes(5.5 * 1024 * 1024)).toBe('5.5 MB');
     expect(formatBytes(50 * 1024 * 1024)).toBe('50.0 MB');
+  });
+});
+
+describe('PYQ and Note Constants', () => {
+  it('provides comprehensive common exams for nursing PYQs', () => {
+    expect(COMMON_PYQ_EXAMS).toContain('NORCET (AIIMS)');
+    expect(COMMON_PYQ_EXAMS).toContain('GMCH Chandigarh');
+    expect(COMMON_PYQ_EXAMS).toContain('ESIC Staff Nurse');
+    expect(COMMON_PYQ_EXAMS.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('provides nursing subject categories', () => {
+    expect(COMMON_NOTE_SUBJECTS).toContain('Anatomy & Physiology');
+    expect(COMMON_NOTE_SUBJECTS).toContain('Pharmacology');
   });
 });

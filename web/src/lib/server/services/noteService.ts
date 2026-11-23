@@ -2,7 +2,7 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { query, queryOne } from '../db';
 import { ApiError, Errors } from '../../errors';
-import type { Note, NoteFileType, Paginated, User } from '@/types';
+import type { Note, NoteFileType, NoteMaterialType, Paginated, User } from '@/types';
 import * as storage from '../storage';
 import { uuidSchema } from '../../validation';
 import { MAX_NOTE_BYTES, detectNoteFileType, normalizeNoteMime } from '../../notes';
@@ -19,7 +19,8 @@ function paginate<T>(items: T[], total: number, page: number, pageSize: number):
 }
 
 const NOTE_COLUMNS = `
-  n.id, n.title, n.description, n.subject, n.course_id, n.file_name, n.file_type, n.mime_type,
+  n.id, n.title, n.description, n.subject, n.material_type, n.exam_name, n.exam_year,
+  n.course_id, n.file_name, n.file_type, n.mime_type,
   n.size_bytes, n.storage_key, n.download_count, n.is_published, n.uploaded_by, n.created_at, n.updated_at,
   c.title AS course_title,
   u.name AS uploader_name
@@ -37,6 +38,9 @@ export async function listNotes(opts: {
   pageSize?: number;
   q?: string;
   subject?: string;
+  materialType?: NoteMaterialType;
+  examName?: string;
+  examYear?: number;
   fileType?: string;
   isPublished?: boolean;
   courseId?: string;
@@ -47,12 +51,29 @@ export async function listNotes(opts: {
   if (opts.q) {
     params.push(`%${opts.q.trim()}%`);
     const n = params.length;
-    where.push(`(n.title ILIKE $${n} OR n.description ILIKE $${n} OR n.subject ILIKE $${n} OR n.file_name ILIKE $${n})`);
+    where.push(
+      `(n.title ILIKE $${n} OR n.description ILIKE $${n} OR n.subject ILIKE $${n} OR n.exam_name ILIKE $${n} OR n.file_name ILIKE $${n})`,
+    );
   }
 
   if (opts.subject) {
     params.push(opts.subject.trim());
     where.push(`n.subject = $${params.length}`);
+  }
+
+  if (opts.materialType) {
+    params.push(opts.materialType.toUpperCase());
+    where.push(`n.material_type = $${params.length}`);
+  }
+
+  if (opts.examName) {
+    params.push(opts.examName.trim());
+    where.push(`n.exam_name = $${params.length}`);
+  }
+
+  if (opts.examYear) {
+    params.push(opts.examYear);
+    where.push(`n.exam_year = $${params.length}`);
   }
 
   if (opts.fileType) {
@@ -92,6 +113,9 @@ export async function listPublishedNotes(opts: {
   pageSize?: number;
   q?: string;
   subject?: string;
+  materialType?: NoteMaterialType;
+  examName?: string;
+  examYear?: number;
   fileType?: string;
   courseId?: string;
 }): Promise<Paginated<Note>> {
@@ -112,6 +136,9 @@ export async function createNote(
     title: string;
     description?: string | null;
     subject?: string | null;
+    materialType?: NoteMaterialType;
+    examName?: string | null;
+    examYear?: number | null;
     courseId?: string | null;
     filename: string;
     mime: string;
@@ -121,7 +148,7 @@ export async function createNote(
   },
 ): Promise<Note> {
   if (!input.title || !input.title.trim()) {
-    throw Errors.badRequest('Note title is required');
+    throw Errors.badRequest('Title is required');
   }
 
   if (input.buffer.length > MAX_NOTE_BYTES) {
@@ -135,17 +162,23 @@ export async function createNote(
 
   await storage.uploadFile(storageKey, input.buffer, finalMime);
 
+  const materialType = input.materialType === 'PYQ' ? 'PYQ' : 'NOTE';
+
   const row = await queryOne<{ id: string }>(
     `INSERT INTO notes (
-      id, title, description, subject, course_id, file_name, file_type, mime_type,
+      id, title, description, subject, material_type, exam_name, exam_year,
+      course_id, file_name, file_type, mime_type,
       size_bytes, storage_key, is_published, uploaded_by
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
     RETURNING id`,
     [
       id,
       input.title.trim().slice(0, 300),
       input.description?.trim().slice(0, 2000) || null,
       input.subject?.trim().slice(0, 100) || null,
+      materialType,
+      input.examName?.trim().slice(0, 150) || null,
+      input.examYear || null,
       input.courseId || null,
       safeFilename,
       input.fileType,
@@ -169,6 +202,9 @@ export async function updateNote(
     title?: string;
     description?: string | null;
     subject?: string | null;
+    materialType?: NoteMaterialType;
+    examName?: string | null;
+    examYear?: number | null;
     courseId?: string | null;
     isPublished?: boolean;
   },
@@ -190,6 +226,18 @@ export async function updateNote(
   if (input.subject !== undefined) {
     params.push(input.subject?.trim().slice(0, 100) || null);
     updates.push(`subject = $${params.length}`);
+  }
+  if (input.materialType !== undefined) {
+    params.push(input.materialType);
+    updates.push(`material_type = $${params.length}`);
+  }
+  if (input.examName !== undefined) {
+    params.push(input.examName?.trim().slice(0, 150) || null);
+    updates.push(`exam_name = $${params.length}`);
+  }
+  if (input.examYear !== undefined) {
+    params.push(input.examYear || null);
+    updates.push(`exam_year = $${params.length}`);
   }
   if (input.courseId !== undefined) {
     params.push(input.courseId || null);
@@ -234,11 +282,22 @@ export async function listDistinctSubjects(): Promise<string[]> {
   return rows.map((r) => r.subject);
 }
 
+export async function listDistinctExams(): Promise<string[]> {
+  const rows = await query<{ exam_name: string }>(
+    `SELECT DISTINCT exam_name FROM notes
+     WHERE exam_name IS NOT NULL AND TRIM(exam_name) <> '' AND is_published = true
+     ORDER BY exam_name ASC`,
+  );
+  return rows.map((r) => r.exam_name);
+}
+
 export async function getAdminNoteStats(): Promise<{
   total: number;
   downloads: number;
   pdfCount: number;
   wordCount: number;
+  noteCount: number;
+  pyqCount: number;
   publishedCount: number;
 }> {
   const row = await queryOne<{
@@ -246,6 +305,8 @@ export async function getAdminNoteStats(): Promise<{
     downloads: string;
     pdf_count: string;
     word_count: string;
+    note_count: string;
+    pyq_count: string;
     published_count: string;
   }>(`
     SELECT
@@ -253,6 +314,8 @@ export async function getAdminNoteStats(): Promise<{
       COALESCE(SUM(download_count), 0)::text AS downloads,
       COUNT(*) FILTER (WHERE file_type = 'PDF')::text AS pdf_count,
       COUNT(*) FILTER (WHERE file_type IN ('DOCX', 'DOC'))::text AS word_count,
+      COUNT(*) FILTER (WHERE material_type = 'NOTE')::text AS note_count,
+      COUNT(*) FILTER (WHERE material_type = 'PYQ')::text AS pyq_count,
       COUNT(*) FILTER (WHERE is_published = true)::text AS published_count
     FROM notes
   `);
@@ -262,6 +325,8 @@ export async function getAdminNoteStats(): Promise<{
     downloads: Number(row?.downloads || 0),
     pdfCount: Number(row?.pdf_count || 0),
     wordCount: Number(row?.word_count || 0),
+    noteCount: Number(row?.note_count || 0),
+    pyqCount: Number(row?.pyq_count || 0),
     publishedCount: Number(row?.published_count || 0),
   };
 }

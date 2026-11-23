@@ -10,6 +10,9 @@ const updateNoteSchema = z.object({
   title: z.string().trim().min(1, 'Title cannot be empty').max(300).optional(),
   description: z.string().trim().max(2000).nullable().optional(),
   subject: z.string().trim().max(100).nullable().optional(),
+  materialType: z.enum(['NOTE', 'PYQ']).optional(),
+  examName: z.string().trim().max(150).nullable().optional(),
+  examYear: z.number().int().min(1990).max(2050).nullable().optional(),
   courseId: z.string().uuid().nullable().optional(),
   isPublished: z.boolean().optional(),
 });

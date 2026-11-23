@@ -14,6 +14,7 @@ export type AccessState = 'FREE' | 'LOGIN_REQUIRED' | 'PURCHASE_REQUIRED' | 'PUR
 export type SeriesReleaseState = 'AVAILABLE' | 'LOCKED' | 'UPCOMING';
 export type PromoDiscountType = 'PERCENTAGE' | 'FIXED';
 export type NoteFileType = 'PDF' | 'DOCX' | 'DOC';
+export type NoteMaterialType = 'NOTE' | 'PYQ';
 
 export interface User {
   id: string;
@@ -374,6 +375,9 @@ export interface Note {
   title: string;
   description: string | null;
   subject: string | null;
+  material_type: NoteMaterialType;
+  exam_name: string | null;
+  exam_year: number | null;
   course_id: string | null;
   course_title?: string | null;
   file_name: string;

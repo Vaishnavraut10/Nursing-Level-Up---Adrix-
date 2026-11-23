@@ -29,7 +29,7 @@ export default async function HomePage({
 
   const [courses, notesData] = await Promise.all([
     listPublishedCourses(),
-    listPublishedNotes({ page: 1, pageSize: 6 }),
+    listPublishedNotes({ page: 1, pageSize: 12 }),
   ]);
 
   return (

@@ -2,6 +2,7 @@ import { route, ok, created } from '@/lib/server/http';
 import { requireAdmin } from '@/lib/server/session';
 import * as noteService from '@/lib/server/services/noteService';
 import { ApiError, Errors } from '@/lib/errors';
+import type { NoteMaterialType } from '@/types';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -13,6 +14,9 @@ export const GET = route(async (req) => {
   const pageSize = Number(url.searchParams.get('pageSize') || '20');
   const q = url.searchParams.get('q') || undefined;
   const subject = url.searchParams.get('subject') || undefined;
+  const materialType = (url.searchParams.get('materialType') as NoteMaterialType) || undefined;
+  const examName = url.searchParams.get('examName') || undefined;
+  const examYear = url.searchParams.get('examYear') ? Number(url.searchParams.get('examYear')) : undefined;
   const fileType = url.searchParams.get('fileType') || undefined;
   const courseId = url.searchParams.get('courseId') || undefined;
   const status = url.searchParams.get('status');
@@ -22,7 +26,18 @@ export const GET = route(async (req) => {
   if (status === 'draft') isPublished = false;
 
   const [notes, stats] = await Promise.all([
-    noteService.listNotes({ page, pageSize, q, subject, fileType, courseId, isPublished }),
+    noteService.listNotes({
+      page,
+      pageSize,
+      q,
+      subject,
+      materialType,
+      examName,
+      examYear,
+      fileType,
+      courseId,
+      isPublished,
+    }),
     noteService.getAdminNoteStats(),
   ]);
 
@@ -40,6 +55,10 @@ export const POST = route(async (req) => {
   const title = String(form.get('title') || '').trim();
   const description = form.get('description') ? String(form.get('description')).trim() : null;
   const subject = form.get('subject') ? String(form.get('subject')).trim() : null;
+  const materialTypeStr = String(form.get('materialType') || 'NOTE').toUpperCase();
+  const materialType: NoteMaterialType = materialTypeStr === 'PYQ' ? 'PYQ' : 'NOTE';
+  const examName = form.get('examName') ? String(form.get('examName')).trim() : null;
+  const examYear = form.get('examYear') ? Number(form.get('examYear')) : null;
   const courseId = form.get('courseId') ? String(form.get('courseId')).trim() : null;
   const isPublishedStr = form.get('isPublished');
   const isPublished = isPublishedStr === 'false' ? false : true;
@@ -63,7 +82,7 @@ export const POST = route(async (req) => {
     throw new ApiError(
       415,
       'UNSUPPORTED_MEDIA_TYPE',
-      'Only PDF (.pdf) and Word documents (.docx, .doc) are supported for notes',
+      'Only PDF (.pdf) and Word documents (.docx, .doc) are supported for study materials and PYQs',
     );
   }
 
@@ -71,6 +90,9 @@ export const POST = route(async (req) => {
     title,
     description,
     subject,
+    materialType,
+    examName,
+    examYear: examYear && !isNaN(examYear) ? examYear : null,
     courseId,
     filename: file.name,
     mime: file.type,
@@ -81,4 +103,3 @@ export const POST = route(async (req) => {
 
   return created(createdNote);
 });
-

@@ -330,12 +330,15 @@ CREATE INDEX IF NOT EXISTS idx_course_free_access_user_id ON course_free_access 
 CREATE INDEX IF NOT EXISTS idx_course_free_access_course_id ON course_free_access (course_id);
 CREATE INDEX IF NOT EXISTS idx_course_free_access_status ON course_free_access (status);
 
--- ---------------------------------------------------------------- study notes
+-- ---------------------------------------------------------------- study notes & PYQs
 CREATE TABLE IF NOT EXISTS notes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
   description TEXT,
   subject TEXT,
+  material_type VARCHAR(20) NOT NULL DEFAULT 'NOTE' CHECK (material_type IN ('NOTE', 'PYQ')),
+  exam_name TEXT,
+  exam_year INTEGER,
   course_id UUID REFERENCES courses(id) ON DELETE SET NULL,
   file_name TEXT NOT NULL,
   file_type VARCHAR(10) NOT NULL CHECK (file_type IN ('PDF', 'DOCX', 'DOC')),
@@ -351,6 +354,9 @@ CREATE TABLE IF NOT EXISTS notes (
 
 CREATE INDEX IF NOT EXISTS idx_notes_published ON notes (is_published, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notes_subject ON notes (subject);
+CREATE INDEX IF NOT EXISTS idx_notes_material_type ON notes (material_type);
+CREATE INDEX IF NOT EXISTS idx_notes_exam_name ON notes (exam_name);
+CREATE INDEX IF NOT EXISTS idx_notes_exam_year ON notes (exam_year);
 CREATE INDEX IF NOT EXISTS idx_notes_course_id ON notes (course_id);
 
 -- ---------------------------------------------------------------- triggers

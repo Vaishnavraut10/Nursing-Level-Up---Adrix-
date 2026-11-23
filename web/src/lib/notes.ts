@@ -17,6 +17,19 @@ export const COMMON_NOTE_SUBJECTS = [
   'Nursing Management & Leadership',
 ] as const;
 
+export const COMMON_PYQ_EXAMS = [
+  'NORCET (AIIMS)',
+  'GMCH Chandigarh',
+  'ESIC Staff Nurse',
+  'RRB Nursing Superintendent',
+  'DSSSB Nursing Officer',
+  'PGIMER Chandigarh',
+  'JIPMER Nursing Officer',
+  'State CHO (Community Health Officer)',
+  'SGPGI Lucknow',
+  'RML Hospital Delhi',
+] as const;
+
 export function detectNoteFileType(filename: string, mime: string, buffer: Buffer | Uint8Array): NoteFileType | null {
   const ext = filename.toLowerCase().split('.').pop() ?? '';
 
