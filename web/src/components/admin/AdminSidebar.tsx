@@ -13,6 +13,7 @@ const NAV = [
   { href: '/admin/users', label: 'Users', icon: 'M10 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-6 8c0-3 3-5 6-5s6 2 6 5z' },
   { href: '/admin/test-series', label: 'Test Series', icon: 'M4 3h9l3 3v11H4zm3 5h6v1.5H7zm0 3h6v1.5H7z' },
   { href: '/admin/daily-tests', label: 'Daily Test Series', icon: 'M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm2 5a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1zm0 4a1 1 0 011-1h4a1 1 0 110 2H9a1 1 0 01-1-1zm0 4a1 1 0 011-1h4a1 1 0 110 2H9a1 1 0 01-1-1z' },
+  { href: '/admin/notes', label: 'Study Notes', icon: 'M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z' },
   { href: '/admin/questions', label: 'Questions', icon: 'M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 12.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm1-4v.5H9V9.5c0-1.5 2-1.6 2-3a1 1 0 0 0-2 0H7a3 3 0 1 1 6 0c0 2-2 2.3-2 4z' },
   { href: '/admin/purchases', label: 'Purchases', icon: 'M3 5h14v10H3zm0 3h14v2H3z' },
   { href: '/admin/free-access', label: 'Free Access', icon: 'M10 2a8 8 0 1 0 8 8 8.009 8.009 0 0 0-8-8zm-1 12-3-3 1.4-1.4 1.6 1.6 4.6-4.6L15 8z' },

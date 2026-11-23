@@ -13,6 +13,7 @@ export type DocumentStatus =
 export type AccessState = 'FREE' | 'LOGIN_REQUIRED' | 'PURCHASE_REQUIRED' | 'PURCHASED';
 export type SeriesReleaseState = 'AVAILABLE' | 'LOCKED' | 'UPCOMING';
 export type PromoDiscountType = 'PERCENTAGE' | 'FIXED';
+export type NoteFileType = 'PDF' | 'DOCX' | 'DOC';
 
 export interface User {
   id: string;
@@ -366,4 +367,24 @@ export interface PlatformSettings {
   ocr_provider: 'tesseract' | 'ocrspace';
   ai_provider: 'gemini' | 'groq';
   mcq_default_count: number;
+}
+
+export interface Note {
+  id: string;
+  title: string;
+  description: string | null;
+  subject: string | null;
+  course_id: string | null;
+  course_title?: string | null;
+  file_name: string;
+  file_type: NoteFileType;
+  mime_type: string;
+  size_bytes: number;
+  storage_key: string;
+  download_count: number;
+  is_published: boolean;
+  uploaded_by: string | null;
+  uploader_name?: string | null;
+  created_at: string;
+  updated_at: string;
 }

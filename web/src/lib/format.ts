@@ -39,3 +39,10 @@ export function formatPhone(phone: string | null | undefined) {
   const m = phone.match(/^\+91(\d{5})(\d{5})$/);
   return m ? `+91 ${m[1]} ${m[2]}` : phone;
 }
+
+export function formatBytes(bytes: number | null | undefined): string {
+  if (bytes === null || bytes === undefined || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}

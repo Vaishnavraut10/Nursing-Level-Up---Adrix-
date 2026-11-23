@@ -330,11 +330,34 @@ CREATE INDEX IF NOT EXISTS idx_course_free_access_user_id ON course_free_access 
 CREATE INDEX IF NOT EXISTS idx_course_free_access_course_id ON course_free_access (course_id);
 CREATE INDEX IF NOT EXISTS idx_course_free_access_status ON course_free_access (status);
 
+-- ---------------------------------------------------------------- study notes
+CREATE TABLE IF NOT EXISTS notes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  description TEXT,
+  subject TEXT,
+  course_id UUID REFERENCES courses(id) ON DELETE SET NULL,
+  file_name TEXT NOT NULL,
+  file_type VARCHAR(10) NOT NULL CHECK (file_type IN ('PDF', 'DOCX', 'DOC')),
+  mime_type TEXT NOT NULL,
+  size_bytes BIGINT NOT NULL CHECK (size_bytes > 0),
+  storage_key TEXT NOT NULL,
+  download_count INTEGER NOT NULL DEFAULT 0,
+  is_published BOOLEAN NOT NULL DEFAULT true,
+  uploaded_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_notes_published ON notes (is_published, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notes_subject ON notes (subject);
+CREATE INDEX IF NOT EXISTS idx_notes_course_id ON notes (course_id);
+
 -- ---------------------------------------------------------------- triggers
 DO $$
 DECLARE t TEXT;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['users','test_series','documents','questions','purchases','daily_tests','daily_test_questions','course_free_access'] LOOP
+  FOREACH t IN ARRAY ARRAY['users','test_series','documents','questions','purchases','daily_tests','daily_test_questions','course_free_access','notes'] LOOP
     EXECUTE format('DROP TRIGGER IF EXISTS trg_%1$s_updated_at ON %1$s', t);
     EXECUTE format('CREATE TRIGGER trg_%1$s_updated_at BEFORE UPDATE ON %1$s FOR EACH ROW EXECUTE FUNCTION set_updated_at()', t);
   END LOOP;

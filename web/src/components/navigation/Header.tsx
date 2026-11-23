@@ -33,6 +33,12 @@ export async function Header() {
           {user ? (
             <>
               <Link
+                href="/notes"
+                className="rounded-lg px-4 py-2 text-sm font-medium tracking-[-0.01em] text-ink-2 transition-colors hover:bg-brand-50 hover:text-brand-700"
+              >
+                Notes
+              </Link>
+              <Link
                 href={user.role === 'ADMIN' ? '/admin' : '/dashboard'}
                 className="hidden rounded-lg px-4 py-2 text-sm font-medium tracking-[-0.01em] text-ink-2 transition-colors hover:bg-brand-50 hover:text-brand-700 sm:block"
               >
