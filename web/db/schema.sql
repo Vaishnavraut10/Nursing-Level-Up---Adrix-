@@ -54,16 +54,19 @@ CREATE TABLE IF NOT EXISTS users (
   google_id      TEXT UNIQUE,
   password_hash  TEXT,
   name           TEXT NOT NULL,
-  email          CITEXT NOT NULL UNIQUE,
+  email          CITEXT UNIQUE,
   phone          TEXT,
   role           user_role NOT NULL DEFAULT 'STUDENT',
   status         user_status NOT NULL DEFAULT 'ACTIVE',
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   last_login_at  TIMESTAMPTZ,
-  CONSTRAINT chk_phone_format CHECK (phone IS NULL OR phone ~ '^\+?[0-9]{7,15}$')
+  CONSTRAINT chk_phone_format CHECK (phone IS NULL OR phone ~ '^\+?[0-9]{7,15}$'),
+  CONSTRAINT chk_user_email_or_phone CHECK (email IS NOT NULL OR phone IS NOT NULL)
 );
 CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone_unique ON users (phone) WHERE phone IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_phone ON users (phone);
 CREATE INDEX IF NOT EXISTS idx_users_google_id ON users (google_id);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users (role);
 

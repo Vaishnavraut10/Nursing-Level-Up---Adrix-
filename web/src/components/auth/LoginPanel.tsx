@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { z } from 'zod';
 import { Alert, Button, Field, Input, cx } from '@/components/ui';
+import { parseAuthIdentifier, phoneSchema } from '@/lib/validation';
 
 function GoogleIcon() {
   return (
@@ -31,6 +33,33 @@ function MailIcon() {
       <path d="m19 8.839-7.77 3.885a2.75 2.75 0 0 1-2.46 0L1 8.839V14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.839Z" />
     </svg>
   );
+}
+
+function PhoneIcon() {
+  return (
+    <svg className="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M2 3.5A1.5 1.5 0 0 1 3.5 2h1.148a1.5 1.5 0 0 1 1.465 1.175l.716 3.223a1.5 1.5 0 0 1-1.052 1.767l-.933.267c-.41.117-.643.555-.48 1.01a11.192 11.192 0 0 0 4.17 5.174c.394.267.87.164 1.134-.176l.666-.856a1.5 1.5 0 0 1 1.898-.44l3.125 1.562a1.5 1.5 0 0 1 .833 1.342V16.5A1.5 1.5 0 0 1 16.5 18h-1C7.49 18 2 12.51 2 4.5v-1Z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
+function UserIcon() {
+  return (
+    <svg className="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path d="M10 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3.465 14.493a1.23 1.23 0 0 0 .41 1.412A9.957 9.957 0 0 0 10 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 0 0-13.074.003Z" />
+    </svg>
+  );
+}
+
+function ContactIcon({ value }: { value: string }) {
+  const trimmed = value.trim();
+  if (trimmed.includes('@')) {
+    return <MailIcon />;
+  }
+  if (/^[0-9+\s\-().]+$/.test(trimmed) && trimmed.length >= 2) {
+    return <PhoneIcon />;
+  }
+  return <UserIcon />;
 }
 
 function EyeIcon({ open }: { open: boolean }) {
@@ -67,13 +96,17 @@ export function LoginPanel({
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('login');
-  const [busy, setBusy] = useState<'google' | 'email' | 'dev' | null>(null);
-  const [email, setEmail] = useState('');
+  const [busy, setBusy] = useState<'google' | 'submit' | 'dev' | null>(null);
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+
+  // Optional secondary contact on registration (e.g. phone if primary is email, or email if primary is phone)
+  const [showSecondary, setShowSecondary] = useState(false);
+  const [secondary, setSecondary] = useState('');
 
   // Dev login state
   const [devEmail, setDevEmail] = useState(admin ? 'admin@example.test' : 'student1@example.test');
@@ -81,21 +114,36 @@ export function LoginPanel({
 
   const redirectTo = `/auth/continue?next=${encodeURIComponent(next)}`;
 
-  async function handleEmailLogin(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    setBusy('email');
+    setBusy('submit');
     setFormError(null);
     setFormSuccess(null);
 
+    const trimmed = identifier.trim();
+    if (!trimmed) {
+      setFormError('Please enter your email or mobile number.');
+      setBusy(null);
+      return;
+    }
+
+    const parsed = parseAuthIdentifier(trimmed);
+    if (parsed.type === 'invalid') {
+      setFormError(parsed.error);
+      setBusy(null);
+      return;
+    }
+
     const res = await signIn('email-password', {
-      email,
+      identifier: trimmed,
+      email: trimmed,
       password,
       redirect: false,
       redirectTo,
     });
 
     if (res?.error) {
-      setFormError('Invalid email or password. Please try again.');
+      setFormError('Invalid credentials. Please check your email or mobile number and password.');
       setBusy(null);
       return;
     }
@@ -105,9 +153,30 @@ export function LoginPanel({
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
-    setBusy('email');
+    setBusy('submit');
     setFormError(null);
     setFormSuccess(null);
+
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setFormError('Please enter your full name.');
+      setBusy(null);
+      return;
+    }
+
+    const trimmed = identifier.trim();
+    if (!trimmed) {
+      setFormError('Please enter your email or mobile number.');
+      setBusy(null);
+      return;
+    }
+
+    const parsed = parseAuthIdentifier(trimmed);
+    if (parsed.type === 'invalid') {
+      setFormError(parsed.error);
+      setBusy(null);
+      return;
+    }
 
     if (password.length < 8) {
       setFormError('Password must be at least 8 characters.');
@@ -115,11 +184,55 @@ export function LoginPanel({
       return;
     }
 
+    let secondaryEmail: string | undefined;
+    let secondaryPhone: string | undefined;
+
+    if (showSecondary && secondary.trim()) {
+      const secTrimmed = secondary.trim();
+      if (parsed.type === 'email') {
+        const secCheck = phoneSchema.safeParse(secTrimmed);
+        if (!secCheck.success) {
+          setFormError('Please enter a valid 10-digit mobile number, or remove the secondary field.');
+          setBusy(null);
+          return;
+        }
+        secondaryPhone = secCheck.data;
+      } else {
+        const secCheck = z.string().email().safeParse(secTrimmed);
+        if (!secCheck.success) {
+          setFormError('Please enter a valid email address, or remove the secondary field.');
+          setBusy(null);
+          return;
+        }
+        secondaryEmail = secTrimmed.toLowerCase();
+      }
+    }
+
     try {
+      const payload: {
+        name: string;
+        password: string;
+        identifier: string;
+        email?: string;
+        phone?: string;
+      } = {
+        name: trimmedName,
+        password,
+        identifier: trimmed,
+      };
+
+      if (parsed.type === 'email') {
+        payload.email = parsed.email;
+        if (secondaryPhone) payload.phone = secondaryPhone;
+      } else {
+        payload.phone = parsed.phone;
+        if (secondaryEmail) payload.email = secondaryEmail;
+      }
+
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -130,16 +243,17 @@ export function LoginPanel({
         return;
       }
 
-      // Auto sign-in after successful registration
+      // Auto sign-in after successful registration using the same identifier & password
       const signInRes = await signIn('email-password', {
-        email,
+        identifier: trimmed,
+        email: trimmed,
         password,
         redirect: false,
         redirectTo: '/',
       });
 
       if (signInRes?.error) {
-        setFormSuccess('Account created! Please sign in.');
+        setFormSuccess('Account created successfully! Please sign in.');
         setMode('login');
         setBusy(null);
         return;
@@ -167,6 +281,8 @@ export function LoginPanel({
     router.push(redirectTo);
     router.refresh();
   }
+
+  const isEmailInput = identifier.trim().includes('@');
 
   return (
     <div className="space-y-6">
@@ -216,7 +332,7 @@ export function LoginPanel({
       {/* Divider */}
       <div className="flex items-center gap-3">
         <div className="h-px flex-1 bg-line" />
-        <span className="text-xs font-medium text-faint">or continue with email</span>
+        <span className="text-xs font-medium text-faint">or continue with email / mobile</span>
         <div className="h-px flex-1 bg-line" />
       </div>
 
@@ -248,9 +364,9 @@ export function LoginPanel({
         </button>
       </div>
 
-      {/* Email / Password form */}
+      {/* Form */}
       <form
-        onSubmit={mode === 'login' ? handleEmailLogin : handleRegister}
+        onSubmit={mode === 'login' ? handleLogin : handleRegister}
         className="space-y-4"
       >
         {formError && <Alert>{formError}</Alert>}
@@ -270,24 +386,74 @@ export function LoginPanel({
           </Field>
         )}
 
-        <Field label="Email Address" htmlFor="auth-email" required>
+        <Field
+          label="Email or Mobile Number"
+          htmlFor="auth-identifier"
+          required
+          hint={mode === 'register' ? 'Use either email (e.g. you@example.com) or 10-digit mobile number' : undefined}
+        >
           <div className="relative">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-faint">
-              <MailIcon />
+              <ContactIcon value={identifier} />
             </div>
             <Input
-              id="auth-email"
-              type="email"
+              id="auth-identifier"
+              type="text"
               required
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
+              placeholder="you@example.com or 10-digit mobile"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              autoComplete="username"
               className="pl-10"
               disabled={busy !== null}
             />
           </div>
         </Field>
+
+        {/* Optional secondary contact for registration */}
+        {mode === 'register' && (
+          <div>
+            {!showSecondary ? (
+              <button
+                type="button"
+                onClick={() => setShowSecondary(true)}
+                className="text-xs font-medium text-brand-600 hover:text-brand-700 transition-colors"
+              >
+                + Also add {isEmailInput ? 'mobile number' : 'email address'} (optional)
+              </button>
+            ) : (
+              <Field
+                label={isEmailInput ? 'Mobile Number (Optional)' : 'Email Address (Optional)'}
+                htmlFor="auth-secondary"
+              >
+                <div className="relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-faint">
+                    {isEmailInput ? <PhoneIcon /> : <MailIcon />}
+                  </div>
+                  <Input
+                    id="auth-secondary"
+                    type={isEmailInput ? 'tel' : 'email'}
+                    placeholder={isEmailInput ? '10-digit mobile number' : 'you@example.com'}
+                    value={secondary}
+                    onChange={(e) => setSecondary(e.target.value)}
+                    className="pl-10 pr-16"
+                    disabled={busy !== null}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSecondary(false);
+                      setSecondary('');
+                    }}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-xs text-faint hover:text-muted transition-colors"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </Field>
+            )}
+          </div>
+        )}
 
         <Field
           label="Password"
@@ -327,7 +493,7 @@ export function LoginPanel({
           type="submit"
           size="lg"
           className="w-full"
-          loading={busy === 'email'}
+          loading={busy === 'submit'}
           disabled={busy !== null}
         >
           {mode === 'login' ? 'Sign In' : 'Create Account'}

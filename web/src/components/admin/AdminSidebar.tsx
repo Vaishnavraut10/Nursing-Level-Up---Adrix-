@@ -20,7 +20,7 @@ const NAV = [
   { href: '/admin/settings', label: 'Settings', icon: 'M10 6.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zM9 1h2l.4 2.2 1.7.7 1.8-1.3 1.4 1.4-1.3 1.8.7 1.7L18 9v2l-2.2.4-.7 1.7 1.3 1.8-1.4 1.4-1.8-1.3-1.7.7L11 19H9l-.4-2.2-1.7-.7-1.8 1.3-1.4-1.4 1.3-1.8-.7-1.7L2 11V9l2.2-.4.7-1.7-1.3-1.8 1.4-1.4 1.8 1.3 1.7-.7z' },
 ];
 
-export function AdminSidebar({ name, email }: { name: string; email: string }) {
+export function AdminSidebar({ name, email }: { name: string; email?: string | null }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const isActive = (href: string) => (href === '/admin' ? pathname === '/admin' : pathname.startsWith(href));
@@ -60,7 +60,7 @@ export function AdminSidebar({ name, email }: { name: string; email: string }) {
         </nav>
         <div className="border-t border-line p-4">
           <div className="truncate text-sm font-medium">{name}</div>
-          <div className="truncate text-xs text-muted">{email}</div>
+          <div className="truncate text-xs text-muted">{email || '—'}</div>
           <div className="mt-3 flex gap-3 text-sm">
             <Link href="/" className="text-muted hover:text-brand-600">View site</Link>
             <button type="button" onClick={() => signOut({ redirectTo: '/admin/login' })} className="text-muted hover:text-bad">Logout</button>

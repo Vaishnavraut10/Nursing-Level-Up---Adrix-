@@ -24,7 +24,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
       <AdminHeader
         back={{ href: '/admin/users', label: 'Users' }}
         title={user.name}
-        description={user.email}
+        description={user.email || user.phone || 'No contact info'}
         actions={
           me?.id !== user.id && (
             user.status === 'ACTIVE' ? (
@@ -34,7 +34,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
               <div className="flex items-center gap-2">
                 <ActionButton endpoint={`/api/admin/users/${user.id}`} method="PATCH" body={{ status: 'ACTIVE' }} label="Reactivate account" variant="primary" />
                 {user.role === 'STUDENT' && (
-                  <DeleteUserButton userId={user.id} userName={user.name} userEmail={user.email} redirectTo="/admin/users" />
+                  <DeleteUserButton userId={user.id} userName={user.name} userEmail={user.email || user.phone || 'No email'} redirectTo="/admin/users" />
                 )}
               </div>
             )
@@ -46,11 +46,11 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
           <h2 className="font-sans text-sm font-semibold">Identity</h2>
           <dl className="mt-4 space-y-3 text-sm">
             <Row label="Name" value={user.name} />
-            <Row label="Email" value={user.email} />
+            <Row label="Email" value={user.email || '—'} />
             <Row label="Phone" value={formatPhone(user.phone)} />
             <Row label="Role" value={<StatusBadge status={user.role} />} />
             <Row label="Status" value={<StatusBadge status={user.status} />} />
-            <Row label="Sign-in" value={user.google_id ? 'Google' : 'Not linked yet'} />
+            <Row label="Sign-in" value={user.google_id ? 'Google' : user.password_hash ? 'Password' : 'Not set'} />
             <Row label="Registered" value={formatDateTime(user.created_at)} />
             <Row label="Last login" value={formatDateTime(user.last_login_at)} />
           </dl>

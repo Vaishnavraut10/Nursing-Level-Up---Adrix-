@@ -32,7 +32,7 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: P
         <p className="mt-1 text-sm text-muted">Only accounts with the admin role can continue.</p>
         {user && !error && (
           <p className="mt-4 rounded-lg bg-warn-50 p-3 text-sm text-warn">
-            You’re signed in as {user.email}, which is not an admin account.
+            You’re signed in as {user.email || user.phone}, which is not an admin account.
           </p>
         )}
         <div className="mt-6">

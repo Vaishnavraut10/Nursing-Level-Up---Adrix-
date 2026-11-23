@@ -184,7 +184,7 @@ export default async function DashboardPage() {
               <dl className="mt-6 space-y-4 divide-y divide-line/50">
                 <div className="pb-4">
                   <dt className="text-xs font-medium uppercase tracking-wider text-faint">Email</dt>
-                  <dd className="mt-1 break-all text-sm font-medium text-ink">{user.email}</dd>
+                  <dd className="mt-1 break-all text-sm font-medium text-ink">{user.email || '—'}</dd>
                 </div>
                 <div className="pt-4 pb-4">
                   <dt className="text-xs font-medium uppercase tracking-wider text-faint">Phone</dt>

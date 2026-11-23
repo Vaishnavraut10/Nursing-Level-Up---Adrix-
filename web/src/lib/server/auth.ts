@@ -29,10 +29,15 @@ export const devLoginEnabled = process.env.NODE_ENV !== 'production' && process.
 export const googleConfigured = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
 const devCredentials = z.object({ email: z.email().max(254), name: z.string().max(100).optional() });
-const emailPasswordCredentials = z.object({
-  email: z.email().max(254),
-  password: z.string().min(1).max(128),
-});
+const passwordCredentials = z
+  .object({
+    identifier: z.string().trim().max(254).optional(),
+    email: z.string().trim().max(254).optional(),
+    password: z.string().min(1).max(128),
+  })
+  .refine((data) => Boolean(data.identifier || data.email), {
+    message: 'Email or mobile number is required',
+  });
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
@@ -43,17 +48,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
-    // Email + password credentials (works in all environments)
+    // Email/Phone + password credentials (works in all environments)
     Credentials({
       id: 'email-password',
-      name: 'Email & Password',
-      credentials: { email: {}, password: {} },
+      name: 'Email or Phone & Password',
+      credentials: { identifier: {}, email: {}, password: {} },
       async authorize(raw) {
-        const parsed = emailPasswordCredentials.safeParse(raw);
+        const parsed = passwordCredentials.safeParse(raw);
         if (!parsed.success) return null;
-        const user = await userService.verifyPassword(parsed.data.email, parsed.data.password);
+        const loginId = (parsed.data.identifier || parsed.data.email)!.trim();
+        const user = await userService.verifyPassword(loginId, parsed.data.password);
         if (!user || user.status !== 'ACTIVE') return null;
-        return { id: user.id, name: user.name, email: user.email };
+        return { id: user.id, name: user.name, email: user.email ?? '' };
       },
     }),
     ...(devLoginEnabled

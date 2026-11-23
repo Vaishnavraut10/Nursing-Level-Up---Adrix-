@@ -19,7 +19,7 @@ export interface User {
   google_id: string | null;
   password_hash: string | null;
   name: string;
-  email: string;
+  email: string | null;
   phone: string | null;
   role: Role;
   status: UserStatus;

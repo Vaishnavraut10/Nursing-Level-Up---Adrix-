@@ -28,6 +28,57 @@ export const phoneSchema = z
 
 export const profileUpdateSchema = z.object({ phone: phoneSchema }).strict();
 
+export function parseAuthIdentifier(raw: string):
+  | { type: 'email'; email: string }
+  | { type: 'phone'; phone: string }
+  | { type: 'invalid'; error: string } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { type: 'invalid', error: 'Email or mobile number is required' };
+  if (trimmed.includes('@')) {
+    const check = z.string().email().safeParse(trimmed);
+    if (!check.success) return { type: 'invalid', error: 'Please enter a valid email address' };
+    return { type: 'email', email: trimmed.toLowerCase() };
+  }
+  const check = phoneSchema.safeParse(trimmed);
+  if (!check.success) {
+    return { type: 'invalid', error: check.error.issues[0]?.message || 'Please enter a valid 10-digit mobile number' };
+  }
+  return { type: 'phone', phone: check.data };
+}
+
+export const loginIdentifierSchema = z
+  .string({ message: 'Email or mobile number is required' })
+  .trim()
+  .min(1, 'Email or mobile number is required')
+  .max(254)
+  .superRefine((val, ctx) => {
+    const res = parseAuthIdentifier(val);
+    if (res.type === 'invalid') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: res.error,
+      });
+    }
+  });
+
+export const registerInputSchema = z
+  .object({
+    name: z.string().trim().min(1, 'Name is required').max(100, 'Name is too long'),
+    identifier: z.string().trim().max(254).optional().nullable(),
+    email: z.string().trim().max(254).optional().nullable(),
+    phone: z.string().trim().max(50).optional().nullable(),
+    password: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .max(128, 'Password is too long'),
+  })
+  .refine((data) => Boolean(data.identifier || data.email || data.phone), {
+    message: 'Either email or mobile number is required',
+    path: ['identifier'],
+  });
+
+export type RegisterInput = z.infer<typeof registerInputSchema>;
+
 const optionalText = (max: number) =>
   z
     .string()

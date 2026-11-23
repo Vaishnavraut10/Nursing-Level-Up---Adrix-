@@ -12,7 +12,7 @@ const PURCHASE_COLUMNS = `p.id, p.user_id, p.test_series_id, p.course_id, p.amou
 export interface CheckoutOrder {
   purchase: Purchase;
   razorpay: { keyId: string; orderId: string; amount: number; currency: string };
-  prefill: { name: string; email: string; contact: string | null };
+  prefill: { name: string; email: string | null; contact: string | null };
   course: { id: string; title: string };
 }
 

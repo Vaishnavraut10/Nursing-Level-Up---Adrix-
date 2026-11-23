@@ -13,7 +13,7 @@ export function DeleteUserButton({
 }: {
   userId: string;
   userName: string;
-  userEmail: string;
+  userEmail?: string | null;
   redirectTo?: string;
 }) {
   const router = useRouter();
@@ -68,8 +68,8 @@ export function DeleteUserButton({
                 <span className="font-semibold text-ink">{userName}</span>
               </div>
               <div>
-                <span className="font-medium text-muted">Email: </span>
-                <span className="font-semibold text-ink">{userEmail}</span>
+                <span className="font-medium text-muted">Email / Contact: </span>
+                <span className="font-semibold text-ink">{userEmail || '—'}</span>
               </div>
             </div>
             {error && <Alert className="mt-4">{error}</Alert>}

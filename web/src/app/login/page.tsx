@@ -91,9 +91,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </div>
 
           <p className="mt-10 text-center text-xs leading-relaxed text-faint">
-            Sign up with Google or create an account with your email.
+            Sign in or create an account with your email or mobile number.
             <br />
-            Your phone number is asked for separately after sign-in.
+            Secure password protection for all accounts.
           </p>
         </div>
       </div>

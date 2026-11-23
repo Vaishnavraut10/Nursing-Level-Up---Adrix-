@@ -54,7 +54,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
             <tr key={u.id} className="hover:bg-sunken/40">
               <Td>
                 <Link href={`/admin/users/${u.id}`} className="font-medium text-ink hover:text-brand-600">{u.name}</Link>
-                <div className="text-xs text-muted">{u.email}</div>
+                <div className="text-xs text-muted">{u.email || u.phone || '—'}</div>
               </Td>
               <Td>{u.phone ? formatPhone(u.phone) : <Badge tone="warn">Missing</Badge>}</Td>
               <Td><StatusBadge status={u.role} /></Td>

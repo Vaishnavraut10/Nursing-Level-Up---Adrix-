@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { signOut } from 'next-auth/react';
 
-export function UserMenu({ name, email, role }: { name: string; email: string; role?: string }) {
+export function UserMenu({ name, email, role }: { name: string; email?: string | null; role?: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const initials = name.split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
@@ -38,7 +38,7 @@ export function UserMenu({ name, email, role }: { name: string; email: string; r
         <div role="menu" className="animate-fade-up absolute right-0 mt-2 w-60 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
           <div className="border-b border-line px-4 py-3">
             <div className="truncate text-sm font-medium text-ink">{name}</div>
-            <div className="truncate text-xs text-muted">{email}</div>
+            <div className="truncate text-xs text-muted">{email || 'Logged in'}</div>
           </div>
           <div className="py-1 text-sm">
             {role === 'ADMIN' ? (

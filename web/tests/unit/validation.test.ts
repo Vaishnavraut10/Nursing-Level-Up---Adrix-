@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { courseInputSchema, phoneSchema, profileUpdateSchema, promoCodeInputSchema, questionInputSchema, submitSchema, testSeriesInputSchema } from '@/lib/validation';
+import {
+  courseInputSchema,
+  phoneSchema,
+  profileUpdateSchema,
+  promoCodeInputSchema,
+  questionInputSchema,
+  submitSchema,
+  testSeriesInputSchema,
+  parseAuthIdentifier,
+  loginIdentifierSchema,
+  registerInputSchema,
+} from '@/lib/validation';
 
 describe('phoneSchema', () => {
   it.each([
@@ -145,4 +156,94 @@ describe('courseInputSchema with multiple promo codes', () => {
     expect(res.success).toBe(false);
   });
 });
+
+describe('parseAuthIdentifier', () => {
+  it('identifies and normalises valid emails', () => {
+    const res = parseAuthIdentifier('  Student@Example.COM  ');
+    expect(res).toEqual({ type: 'email', email: 'student@example.com' });
+  });
+
+  it('identifies and normalises valid phone numbers', () => {
+    const res1 = parseAuthIdentifier('9876543210');
+    expect(res1).toEqual({ type: 'phone', phone: '+919876543210' });
+
+    const res2 = parseAuthIdentifier('+91 98765 43210');
+    expect(res2).toEqual({ type: 'phone', phone: '+919876543210' });
+
+    const res3 = parseAuthIdentifier('09876543210');
+    expect(res3).toEqual({ type: 'phone', phone: '+919876543210' });
+  });
+
+  it('rejects invalid inputs', () => {
+    expect(parseAuthIdentifier('').type).toBe('invalid');
+    expect(parseAuthIdentifier('   ').type).toBe('invalid');
+    expect(parseAuthIdentifier('invalid-email@').type).toBe('invalid');
+    expect(parseAuthIdentifier('12345').type).toBe('invalid');
+    expect(parseAuthIdentifier('not-a-number-or-email').type).toBe('invalid');
+  });
+});
+
+describe('loginIdentifierSchema', () => {
+  it('accepts valid email', () => {
+    expect(loginIdentifierSchema.safeParse('student@example.com').success).toBe(true);
+  });
+
+  it('accepts valid phone number', () => {
+    expect(loginIdentifierSchema.safeParse('9876543210').success).toBe(true);
+  });
+
+  it('rejects invalid identifier', () => {
+    expect(loginIdentifierSchema.safeParse('').success).toBe(false);
+    expect(loginIdentifierSchema.safeParse('12345').success).toBe(false);
+    expect(loginIdentifierSchema.safeParse('bad@').success).toBe(false);
+  });
+});
+
+describe('registerInputSchema', () => {
+  it('accepts valid registration with identifier (email)', () => {
+    const res = registerInputSchema.safeParse({
+      name: 'Test Student',
+      identifier: 'test@example.com',
+      password: 'password123',
+    });
+    expect(res.success).toBe(true);
+  });
+
+  it('accepts valid registration with identifier (phone)', () => {
+    const res = registerInputSchema.safeParse({
+      name: 'Test Student',
+      identifier: '9876543210',
+      password: 'password123',
+    });
+    expect(res.success).toBe(true);
+  });
+
+  it('accepts registration with both phone and secondary email', () => {
+    const res = registerInputSchema.safeParse({
+      name: 'Test Student',
+      identifier: '9876543210',
+      email: 'test@example.com',
+      password: 'password123',
+    });
+    expect(res.success).toBe(true);
+  });
+
+  it('rejects registration with neither email nor phone', () => {
+    const res = registerInputSchema.safeParse({
+      name: 'Test Student',
+      password: 'password123',
+    });
+    expect(res.success).toBe(false);
+  });
+
+  it('rejects short passwords', () => {
+    const res = registerInputSchema.safeParse({
+      name: 'Test Student',
+      identifier: '9876543210',
+      password: 'short',
+    });
+    expect(res.success).toBe(false);
+  });
+});
+
 

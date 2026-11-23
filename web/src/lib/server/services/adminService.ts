@@ -149,7 +149,7 @@ export async function userDetail(id: string) {
     `SELECT id, google_id, name, email, phone, role, status, created_at, updated_at, last_login_at FROM users WHERE id = $1`,
     [id],
   );
-  if (!user || user.email.startsWith('deleted_') && user.email.endsWith('@deleted.local')) {
+  if (!user || (user.email && user.email.startsWith('deleted_') && user.email.endsWith('@deleted.local'))) {
     throw Errors.notFound('User');
   }
   const [purchases, attempts, progress] = await Promise.all([
@@ -179,7 +179,7 @@ export async function deleteUser(admin: User, id: string) {
       [id],
       db,
     );
-    if (!targetUser || (targetUser.email.startsWith('deleted_') && targetUser.email.endsWith('@deleted.local'))) {
+    if (!targetUser || (targetUser.email && targetUser.email.startsWith('deleted_') && targetUser.email.endsWith('@deleted.local'))) {
       throw Errors.notFound('User');
     }
     if (targetUser.role === 'ADMIN') {
