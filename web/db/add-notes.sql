@@ -20,3 +20,4 @@ CREATE TABLE IF NOT EXISTS notes (
 CREATE INDEX IF NOT EXISTS idx_notes_published ON notes (is_published, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notes_subject ON notes (subject);
 CREATE INDEX IF NOT EXISTS idx_notes_course_id ON notes (course_id);
+

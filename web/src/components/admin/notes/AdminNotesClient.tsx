@@ -26,6 +26,16 @@ const COMMON_SUBJECTS = [
   'Nursing Management & Leadership',
 ];
 
+function extractErrorMessage(data: unknown, fallback: string): string {
+  if (!data || typeof data !== 'object') return fallback;
+  const d = data as { error?: string | { message?: string } | unknown };
+  if (typeof d.error === 'string') return d.error;
+  if (d.error && typeof d.error === 'object' && 'message' in d.error && typeof (d.error as { message?: unknown }).message === 'string') {
+    return (d.error as { message: string }).message;
+  }
+  return fallback;
+}
+
 function FileTypeBadge({ type }: { type: NoteFileType }) {
   if (type === 'PDF') {
     return (
@@ -134,9 +144,9 @@ export function AdminNotesClient({
         body: formData,
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to upload note');
+        throw new Error(extractErrorMessage(data, 'Failed to upload note'));
       }
 
       setIsUploadOpen(false);
@@ -182,9 +192,9 @@ export function AdminNotesClient({
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to update note');
+        throw new Error(extractErrorMessage(data, 'Failed to update note'));
       }
 
       setEditingNote(null);
@@ -205,9 +215,9 @@ export function AdminNotesClient({
       const res = await fetch(`/api/admin/notes/${deletingNote.id}`, {
         method: 'DELETE',
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to delete note');
+        throw new Error(extractErrorMessage(data, 'Failed to delete note'));
       }
 
       setDeletingNote(null);
@@ -616,3 +626,4 @@ export function AdminNotesClient({
     </>
   );
 }
+

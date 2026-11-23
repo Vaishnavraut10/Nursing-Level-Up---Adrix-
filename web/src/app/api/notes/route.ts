@@ -21,3 +21,4 @@ export const GET = route(async (req) => {
 
   return ok({ ...notes, subjects });
 });
+

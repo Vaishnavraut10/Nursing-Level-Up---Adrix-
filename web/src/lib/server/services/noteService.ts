@@ -135,12 +135,12 @@ export async function createNote(
 
   await storage.uploadFile(storageKey, input.buffer, finalMime);
 
-  const row = await queryOne<Note>(
+  const row = await queryOne<{ id: string }>(
     `INSERT INTO notes (
       id, title, description, subject, course_id, file_name, file_type, mime_type,
       size_bytes, storage_key, is_published, uploaded_by
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-    RETURNING ${NOTE_COLUMNS.replace(/c\.title AS course_title,/g, 'NULL AS course_title,').replace(/u\.name AS uploader_name/g, 'NULL AS uploader_name')}`,
+    RETURNING id`,
     [
       id,
       input.title.trim().slice(0, 300),
@@ -158,7 +158,9 @@ export async function createNote(
   );
 
   if (!row) throw new ApiError(500, 'INTERNAL_ERROR', 'Failed to create note');
-  return (await getNoteById(id)) || row;
+  const created = await getNoteById(id);
+  if (!created) throw new ApiError(500, 'INTERNAL_ERROR', 'Failed to retrieve created note');
+  return created;
 }
 
 export async function updateNote(

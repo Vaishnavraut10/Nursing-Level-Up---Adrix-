@@ -371,3 +371,4 @@ export default async function NotesPage({
     </div>
   );
 }
+

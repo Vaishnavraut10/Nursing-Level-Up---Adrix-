@@ -63,3 +63,4 @@ export function normalizeNoteMime(fileType: NoteFileType, reportedMime: string):
       return reportedMime || 'application/octet-stream';
   }
 }
+

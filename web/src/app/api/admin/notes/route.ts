@@ -81,3 +81,4 @@ export const POST = route(async (req) => {
 
   return created(createdNote);
 });
+
